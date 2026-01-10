@@ -9,6 +9,10 @@ This project is a web-based application that dynamically generates HTML forms fr
 -   **Type-Safe Development**: Written in TypeScript for robust and maintainable code.
 -   **Modern Tooling**: Utilizes Vite for development and bundling, providing a fast and efficient workflow.
 
+## Status
+
+This project is in a very early pre-alpha state. I am not using it yet and it may not be working correctly for you.
+
 ## How it Works
 
 The application follows a clear pipeline to transform a JSON Schema into an interactive form:
