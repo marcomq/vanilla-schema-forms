@@ -16,14 +16,14 @@ function readFormData(node: FormNode, path: string = ""): any {
       }
 
       // Read additional properties
-      if (node.additionalProperties && node.additionalProperties !== false) {
+      if (node.additionalProperties) {
         // Find the container for this object using the ID we assigned in renderer
         const objectContainer = document.getElementById(elementId);
         if (objectContainer) {
           const rows = objectContainer.querySelectorAll(":scope > .additional-properties > .ap-items > .ap-row");
           rows.forEach((row, index) => {
-            const keyInput = row.querySelector(".ap-key") as HTMLInputElement;
-            const key = keyInput.value.trim();
+            const keyInput = row.querySelector(".ap-key") as HTMLInputElement | null;
+            const key = keyInput ? keyInput.value.trim() : "";
             
             if (key) {
               // Reconstruct the ID used in renderer for the value
@@ -32,8 +32,7 @@ function readFormData(node: FormNode, path: string = ""): any {
                 ? { type: 'string', title: 'Value' } as FormNode 
                 : node.additionalProperties;
               
-              // Recursively read the value
-              obj[key] = readFormData({ ...valueSchema, title: "Value" }, valueIdPath.replace(".Value", ""));
+              obj[key] = readFormData(valueSchema as FormNode, valueIdPath.replace(".Value", ""));
             }
           });
         }
@@ -41,7 +40,7 @@ function readFormData(node: FormNode, path: string = ""): any {
 
       // Read oneOf selection
       if (node.oneOf) {
-        const selector = document.getElementById(`${elementId}__selector`) as HTMLSelectElement;
+        const selector = document.getElementById(`${elementId}__selector`) as HTMLSelectElement | null;
         if (selector) {
           const index = parseInt(selector.value, 10);
           const selectedNode = node.oneOf[index];
@@ -57,10 +56,11 @@ function readFormData(node: FormNode, path: string = ""): any {
       const arrayContainer = document.getElementById(elementId);
       
       if (arrayContainer && node.items) {
+        const items = node.items;
         const rows = arrayContainer.querySelectorAll(":scope > .array-items > .array-item-row");
         rows.forEach((row, index) => {
           const itemTitle = `Item ${index + 1}`;
-          const itemNode = { ...node.items!, title: itemTitle };
+          const itemNode = { ...items, title: itemTitle };
           const itemPath = `${elementId}.${index}`;
           
           arrayResult.push(readFormData(itemNode, itemPath));
@@ -70,17 +70,17 @@ function readFormData(node: FormNode, path: string = ""): any {
 
     case "number":
     case "integer":
-      const numElement = document.getElementById(elementId) as HTMLInputElement;
-      return numElement.valueAsNumber;
+      const numElement = document.getElementById(elementId) as HTMLInputElement | null;
+      return numElement ? numElement.valueAsNumber : 0;
 
     case "boolean":
-      const boolElement = document.getElementById(elementId) as HTMLInputElement;
-      return boolElement.checked;
+      const boolElement = document.getElementById(elementId) as HTMLInputElement | null;
+      return boolElement ? boolElement.checked : false;
 
     case "string":
     default:
-      const strElement = document.getElementById(elementId) as HTMLInputElement;
-      return strElement.value;
+      const strElement = document.getElementById(elementId) as HTMLInputElement | null;
+      return strElement ? strElement.value : "";
   }
 }
 

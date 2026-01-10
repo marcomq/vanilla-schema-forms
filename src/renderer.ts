@@ -48,7 +48,7 @@ function createFormElement(node: FormNode, path: string = ""): HTMLElement | nul
       element.className = "form-control";
       element.id = elementId;
       if (node.defaultValue) {
-        (element as HTMLInputElement).value = node.defaultValue;
+        (element as HTMLInputElement).value = String(node.defaultValue);
       }
       if (node.description) {
         const desc = document.createElement("div");
@@ -67,7 +67,7 @@ function createFormElement(node: FormNode, path: string = ""): HTMLElement | nul
       element.className = "form-control";
       element.id = elementId;
       if (node.defaultValue) {
-        (element as HTMLInputElement).value = node.defaultValue;
+        (element as HTMLInputElement).value = String(node.defaultValue);
       }
       wrapper.appendChild(label);
       wrapper.appendChild(element);
@@ -106,7 +106,7 @@ function createFormElement(node: FormNode, path: string = ""): HTMLElement | nul
       }
 
       // Handle additionalProperties
-      if (node.additionalProperties && node.additionalProperties !== false) {
+      if (node.additionalProperties) {
         const apContainer = document.createElement("div");
         apContainer.className = "additional-properties mt-3";
         
@@ -232,6 +232,7 @@ function createFormElement(node: FormNode, path: string = ""): HTMLElement | nul
       arrayFieldset.appendChild(arrayItemsContainer);
 
       if (node.items) {
+        const items = node.items; // Capture items for the closure
         const addItemBtn = document.createElement("button");
         addItemBtn.type = "button";
         addItemBtn.className = "btn btn-sm btn-outline-primary mt-2";
@@ -246,7 +247,7 @@ function createFormElement(node: FormNode, path: string = ""): HTMLElement | nul
           itemWrapper.className = "flex-grow-1";
           
           // Create a temporary node for the item with a unique title based on index
-          const itemNode = { ...node.items!, title: `Item ${index + 1}` };
+          const itemNode = { ...items, title: `Item ${index + 1}` };
           const itemElement = createFormElement(itemNode, `${elementId}.${index}`);
           
           if (itemElement) {

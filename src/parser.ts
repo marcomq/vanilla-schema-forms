@@ -30,8 +30,12 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
     // Parse first to get the raw structure and check for root $ref
     const parsedSchema = (await parser.parse(schema as any)) as JSONSchema;
     console.log(parsedSchema);
-    const rootRef = parsedSchema.$ref;
-    const rootAdditionalPropertiesRef = (parsedSchema.additionalProperties as any)?.$ref;
+
+    const rootRef = typeof parsedSchema === "object" ? (parsedSchema as Exclude<JSONSchema, boolean>).$ref : undefined;
+    const rootAdditionalPropertiesRef =
+      typeof parsedSchema === "object" && parsedSchema.additionalProperties && typeof parsedSchema.additionalProperties === "object" && "$ref" in parsedSchema.additionalProperties
+        ? (parsedSchema.additionalProperties as { $ref: string }).$ref
+        : undefined;
 
     console.log("a");
     // Dereference the schema to resolve all $ref pointers
@@ -40,7 +44,7 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
     let finalSchema = dereferencedSchema;
 
     // If the root schema had a $ref, resolve it manually from the dereferenced definitions
-    if (rootRef && rootRef.startsWith("#/")) {
+    if (rootRef && rootRef.startsWith("#/") && typeof finalSchema === "object") {
       console.log(1);
       const refPath = rootRef.substring(2).split("/");
       let definition: any = dereferencedSchema;
@@ -48,12 +52,12 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
         definition = definition?.[part];
       }
       if (definition) {
-        finalSchema = { ...dereferencedSchema, ...definition };
+        finalSchema = { ...(dereferencedSchema as Exclude<JSONSchema, boolean>), ...definition };
       }
     }
 
     // If the root schema had a $ref in additionalProperties, resolve it manually
-    if (rootAdditionalPropertiesRef && rootAdditionalPropertiesRef.startsWith("#/")) {
+    if (rootAdditionalPropertiesRef && rootAdditionalPropertiesRef.startsWith("#/") && typeof finalSchema === "object") {
       console.log(2);
       const refPath = rootAdditionalPropertiesRef.substring(2).split("/");
       let definition: any = dereferencedSchema;
@@ -61,7 +65,9 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
         definition = definition?.[part];
       }
       if (definition) {
-        finalSchema.additionalProperties = { ...(finalSchema.additionalProperties as object), ...definition };
+        const schemaObj = finalSchema as Exclude<JSONSchema, boolean>;
+        const existingAp = typeof schemaObj.additionalProperties === "object" ? schemaObj.additionalProperties : {};
+        (schemaObj as any).additionalProperties = { ...existingAp, ...definition };
       }
     }
 
@@ -93,21 +99,25 @@ function transformSchemaToFormNode(
     return { type: "boolean", title };
   }
 
-  if (schema.allOf) {
-    schema = mergeAllOf(schema);
-  }
-  if (typeof schema === "boolean") {
-    return { type: "boolean", title };
+  let schemaObj = schema as Exclude<JSONSchema, boolean>;
+
+  // Check for allOf on the object
+  if (schemaObj.allOf) {
+    const merged = mergeAllOf(schemaObj);
+    if (typeof merged === "boolean") {
+      return { type: "boolean", title };
+    }
+    schemaObj = merged as Exclude<JSONSchema, boolean>;
   }
 
   // Base case and type checking
-  let type = schema.type;
+  let type = schemaObj.type;
   if (!type) {
     // Infer type if missing
-    if (schema.properties || schema.additionalProperties || schema.oneOf) {
+    if (schemaObj.properties || schemaObj.additionalProperties || schemaObj.oneOf) {
       type = "object";
     } else {
-      type = Array.isArray(schema.type) ? schema.type[0] : "string";
+      type = Array.isArray(schemaObj.type) ? schemaObj.type[0] : "string";
     }
   } else if (Array.isArray(type)) {
     type = type[0];
@@ -115,14 +125,14 @@ function transformSchemaToFormNode(
 
   const node: FormNode = {
     type: type as string,
-    title: schema.title || title,
-    description: schema.description,
-    defaultValue: schema.default,
+    title: schemaObj.title || title,
+    description: schemaObj.description,
+    defaultValue: schemaObj.default,
   };
 
   // Handle oneOf
-  if (schema.oneOf) {
-    node.oneOf = schema.oneOf.map((sub: any, idx: number) => {
+  if (schemaObj.oneOf) {
+    node.oneOf = schemaObj.oneOf.map((sub: JSONSchema, idx: number) => {
       const mergedSub = mergeAllOf(sub);
       return transformSchemaToFormNode(mergedSub, inferTitle(mergedSub, idx), depth + 1);
     });
@@ -130,19 +140,19 @@ function transformSchemaToFormNode(
 
   // Recurse for object properties
   if (node.type === "object") {
-    if (schema.properties) {
+    if (schemaObj.properties) {
       node.properties = {};
-      for (const key in schema.properties) {
-        const propSchema = schema.properties[key] as JSONSchema;
+      for (const key in schemaObj.properties) {
+        const propSchema = schemaObj.properties[key] as JSONSchema;
         node.properties[key] = transformSchemaToFormNode(propSchema, key, depth + 1);
       }
     }
-    if (schema.additionalProperties !== undefined) {
-      if (typeof schema.additionalProperties === "boolean") {
-        node.additionalProperties = schema.additionalProperties;
+    if (schemaObj.additionalProperties !== undefined) {
+      if (typeof schemaObj.additionalProperties === "boolean") {
+        node.additionalProperties = schemaObj.additionalProperties;
       } else {
         node.additionalProperties = transformSchemaToFormNode(
-          schema.additionalProperties as JSONSchema,
+          schemaObj.additionalProperties as JSONSchema,
           "Additional Property",
           depth + 1
         );
@@ -151,23 +161,25 @@ function transformSchemaToFormNode(
   }
 
   // Recurse for array items
-  if (schema.type === "array" && schema.items) {
+  if (schemaObj.type === "array" && schemaObj.items) {
     // Assuming schema.items is a single schema object
-    if (typeof schema.items === "object" && !Array.isArray(schema.items)) {
-      node.items = transformSchemaToFormNode(schema.items as JSONSchema, "Item", depth + 1);
+    if (typeof schemaObj.items === "object" && !Array.isArray(schemaObj.items)) {
+      node.items = transformSchemaToFormNode(schemaObj.items as JSONSchema, "Item", depth + 1);
     }
   }
 
   return node;
 }
 
-function getConstOrEnum(schema: any): string | undefined {
-  if (!schema) return undefined;
-  if (schema.const) return String(schema.const);
-  if (schema.enum && schema.enum.length === 1) return String(schema.enum[0]);
+function getConstOrEnum(schema: JSONSchema): string | undefined {
+  if (typeof schema === "boolean") return undefined;
+  const schemaObj = schema as Exclude<JSONSchema, boolean>;
+
+  if (schemaObj.const) return String(schemaObj.const);
+  if (Array.isArray(schemaObj.enum) && schemaObj.enum.length === 1) return String(schemaObj.enum[0]);
   
-  if (schema.allOf) {
-    for (const sub of schema.allOf) {
+  if (schemaObj.allOf) {
+    for (const sub of schemaObj.allOf) {
       const val = getConstOrEnum(sub);
       if (val) return val;
     }
@@ -175,31 +187,35 @@ function getConstOrEnum(schema: any): string | undefined {
   return undefined;
 }
 
-function inferTitle(schema: any, index: number): string {
-  if (schema.title) return schema.title;
+function inferTitle(schema: JSONSchema, index: number): string {
+  if (typeof schema === "boolean") return `Option ${index + 1}`;
+  const schemaObj = schema as Exclude<JSONSchema, boolean>;
+
+  if (schemaObj.title) return schemaObj.title;
   
-  const directVal = getConstOrEnum(schema);
+  const directVal = getConstOrEnum(schemaObj);
   if (directVal) return directVal;
   
   // Heuristic: If the object has exactly one property, use that property name as the title.
-  if (schema.properties) {
-    const keys = Object.keys(schema.properties);
+  if (schemaObj.properties) {
+    const keys = Object.keys(schemaObj.properties);
     if (keys.length === 1) return keys[0];
   }
 
   const candidates = ['type', 'name', 'kind', 'id', 'mode', 'strategy', 'action', 'method', 'service', 'provider'];
   for (const key of candidates) {
-    if (schema.properties?.[key]) {
-      const val = getConstOrEnum(schema.properties[key]);
+    if (schemaObj.properties?.[key]) {
+      const prop = schemaObj.properties[key] as JSONSchema;
+      const val = getConstOrEnum(prop);
       if (val) return val;
-      if (schema.properties[key].default) return String(schema.properties[key].default);
+      if (typeof prop === "object" && prop.default) return String(prop.default);
     }
   }
 
   // Fallback: Check ANY property for a const/single-enum string value
-  if (schema.properties) {
-    for (const key in schema.properties) {
-      const val = getConstOrEnum(schema.properties[key]);
+  if (schemaObj.properties) {
+    for (const key in schemaObj.properties) {
+      const val = getConstOrEnum(schemaObj.properties[key] as JSONSchema);
       if (val && val.length < 50) return val;
     }
   }
@@ -208,14 +224,21 @@ function inferTitle(schema: any, index: number): string {
 }
 
 function mergeAllOf(schema: JSONSchema): JSONSchema {
-  const merged: any = { ...schema };
-  delete merged.allOf;
+  if (typeof schema === "boolean") {
+    return schema;
+  }
+  const schemaObj = schema as Exclude<JSONSchema, boolean>;
+  // Destructure to separate allOf from the rest, avoiding 'any' and 'delete'
+  const { allOf, ...rest } = schemaObj;
+  const merged: any = { ...rest };
 
-  if (!schema.allOf) return schema;
+  if (!allOf) return schemaObj;
 
-  schema.allOf.forEach((subSchema: any) => {
+  allOf.forEach((subSchema: JSONSchema) => {
     // Recursively merge nested allOfs to ensure we get all properties
     const flattenedSub = mergeAllOf(subSchema);
+
+    if (typeof flattenedSub === "boolean") return;
 
     if (!merged.title && flattenedSub.title) {
       merged.title = flattenedSub.title;
@@ -237,5 +260,5 @@ function mergeAllOf(schema: JSONSchema): JSONSchema {
     }
   });
 
-  return merged;
+  return merged as JSONSchema;
 }
