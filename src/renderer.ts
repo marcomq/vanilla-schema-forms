@@ -50,9 +50,19 @@ export function renderNode(node: FormNode, path: string = "", headless: boolean 
   NODE_REGISTRY.set(elementId, node);
 
   // 1. Custom Renderers
-  const configKey = node.title.toLowerCase();
   const fullPathKey = elementId.toLowerCase();
-  const renderer = customRenderers[fullPathKey] || customRenderers[configKey];
+  let renderer: CustomRenderer | undefined;
+  let maxMatchLen = -1;
+
+  for (const key in customRenderers) {
+    const lowerKey = key.toLowerCase();
+    if (fullPathKey === lowerKey || fullPathKey.endsWith('.' + lowerKey)) {
+      if (lowerKey.length > maxMatchLen) {
+        maxMatchLen = lowerKey.length;
+        renderer = customRenderers[key];
+      }
+    }
+  }
 
   if (renderer?.render) {
     return renderer.render(node, path, elementId);
@@ -91,7 +101,21 @@ export function renderObject(node: FormNode, _path: string, elementId: string, h
 }
 
 export function renderProperties(properties: { [key: string]: FormNode }, parentId: string): string {
-  const keys = Object.keys(properties).sort((a, b) => {
+  const groups = CONFIG.layout.groups[parentId] || [];
+  const groupedKeys = new Set(groups.flatMap((g: { keys: string[]; title?: string; className?: string; }) => g.keys));
+ 
+  // Render groups
+  const groupsHtml = groups.map((group: { keys: string[]; title?: string; className?: string; }) => {
+    const groupContent = group.keys
+      .map(key => properties[key] ? renderNode(properties[key], parentId) : '')
+      .join('');
+    return templates.renderLayoutGroup(group.title, groupContent, group.className);
+  }).join('');
+
+  // Filter out grouped keys for the remaining list
+  const remainingKeys = Object.keys(properties).filter(k => !groupedKeys.has(k));
+
+  const keys = remainingKeys.sort((a, b) => {
     const nodeA = properties[a];
     const nodeB = properties[b];
     
@@ -114,9 +138,11 @@ export function renderProperties(properties: { [key: string]: FormNode }, parent
     return a.localeCompare(b);
   });
 
-  return keys
+  const remainingHtml = keys
     .map(key => renderNode(properties[key], parentId))
     .join('');
+
+  return groupsHtml + remainingHtml;
 }
 
 function attachInteractivity(container: HTMLElement) {

@@ -3,30 +3,41 @@ import { getUiText } from "./i18n";
 
 const defaultTemplates = {
   renderString: (node: FormNode, elementId: string): string => {
+    const required = node.required ? 'required' : '';
+    const pattern = node.pattern ? `pattern="${node.pattern}"` : '';
+    const minLength = node.minLength ? `minlength="${node.minLength}"` : '';
+    const maxLength = node.maxLength ? `maxlength="${node.maxLength}"` : '';
+    
     return `
     <div class="mb-3">
-      <label class="form-label">${node.title}</label>
-      <input type="text" class="form-control" id="${elementId}" value="${node.defaultValue || ''}">
+      <label class="form-label">${node.title} ${node.required ? '<span class="text-danger">*</span>' : ''}</label>
+      <input type="text" class="form-control" id="${elementId}" value="${node.defaultValue || ''}" ${required} ${pattern} ${minLength} ${maxLength}>
       ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
   },
 
   renderNumber: (node: FormNode, elementId: string): string => {
+    const required = node.required ? 'required' : '';
+    const min = node.minimum !== undefined ? `min="${node.minimum}"` : '';
+    const max = node.maximum !== undefined ? `max="${node.maximum}"` : '';
+
     return `
     <div class="mb-3">
-      <label class="form-label">${node.title}</label>
-      <input type="number" class="form-control" id="${elementId}" value="${node.defaultValue || ''}">
+      <label class="form-label">${node.title} ${node.required ? '<span class="text-danger">*</span>' : ''}</label>
+      <input type="number" class="form-control" id="${elementId}" value="${node.defaultValue || ''}" ${required} ${min} ${max}>
       ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
   },
 
   renderBoolean: (node: FormNode, elementId: string, attributes: string = ""): string => {
+    const required = node.required ? 'required' : '';
+    
     return `
     <div class="mb-3 form-check">
-      <input type="checkbox" class="form-check-input" id="${elementId}" ${node.defaultValue ? 'checked' : ''} ${attributes}>
-      <label class="form-check-label" for="${elementId}">${node.title}</label>
+      <input type="checkbox" class="form-check-input" id="${elementId}" ${node.defaultValue ? 'checked' : ''} ${attributes} ${required}>
+      <label class="form-check-label" for="${elementId}">${node.title} ${node.required ? '<span class="text-danger">*</span>' : ''}</label>
       ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
@@ -34,10 +45,12 @@ const defaultTemplates = {
 
   renderSelect: (node: FormNode, elementId: string, options: string[] = []): string => {
     const opts = options.map(o => `<option value="${o}">${o}</option>`).join('');
+    const required = node.required ? 'required' : '';
+
     return `
     <div class="mb-3">
-      <label class="form-label">${node.title}</label>
-      <select class="form-select" id="${elementId}">
+      <label class="form-label">${node.title} ${node.required ? '<span class="text-danger">*</span>' : ''}</label>
+      <select class="form-select" id="${elementId}" ${required}>
         ${opts}
       </select>
       ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
@@ -127,6 +140,16 @@ const defaultTemplates = {
   `;
   },
 
+  renderLayoutGroup: (title: string | undefined, contentHtml: string, className: string = "d-flex gap-3"): string => {
+    return `
+    <div class="layout-group mb-3">
+        ${title ? `<label class="form-label d-block fw-bold">${title}</label>` : ''}
+        <div class="${className}">
+            ${contentHtml}
+        </div>
+    </div>`;
+  },
+
   renderFormWrapper: (html: string): string => {
     return `<form id="generated-form">${html}</form>`;
   },
@@ -170,6 +193,7 @@ export function renderOneOf(node: FormNode, elementId: string): string { return 
 export function renderArray(node: FormNode, elementId: string): string { return currentTemplates.renderArray(node, elementId); }
 export function renderArrayItem(itemHtml: string): string { return currentTemplates.renderArrayItem(itemHtml); }
 export function renderAdditionalPropertyRow(valueHtml: string): string { return currentTemplates.renderAdditionalPropertyRow(valueHtml); }
+export function renderLayoutGroup(title: string | undefined, contentHtml: string, className?: string): string { return currentTemplates.renderLayoutGroup(title, contentHtml, className); }
 export function renderFormWrapper(html: string): string { return currentTemplates.renderFormWrapper(html); }
 export function renderNull(node: FormNode): string { return currentTemplates.renderNull(node); }
 export function renderUnsupported(node: FormNode): string { return currentTemplates.renderUnsupported(node); }

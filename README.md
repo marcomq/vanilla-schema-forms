@@ -34,12 +34,12 @@ The application follows a clear pipeline to transform a JSON Schema into an inte
 ├── schema.json           # Example JSON Schema
 ├── tsconfig.json         # TypeScript configuration
 ├── vite.config.ts        # Vite configuration (including polyfills for Node.js modules)
-├── public/               # Static assets (e.g., schema.json will be moved here if needed)
-│   └── (optional: schema.json) # schema.json is served from here
 └── src/
     ├── config.ts         # Configuration for sorting, visibility, and heuristics
     ├── i18n.ts           # Text overrides and internationalization mappings
     ├── index.ts          # Main application logic, orchestrates parsing and rendering
+    ├── form-data-reader.ts # Logic to read data back from the DOM
+    ├── ui-schema-adapter.ts # Adapter for JSON Forms UI Schemas
     ├── parser.ts         # Parses JSON Schema, dereferences, and transforms to FormNode tree
     ├── parser.test.ts    # Unit tests for the parser
     └── renderer.ts       # Renders the FormNode tree into HTML form elements
@@ -63,3 +63,49 @@ The application follows a clear pipeline to transform a JSON Schema into an inte
 
 -   **"Buffer is not defined" or "Module 'path' has been externalized" errors**: This project uses Node.js polyfills via `vite-plugin-node-polyfills` to make `@apidevtools/json-schema-ref-parser` compatible with browser environments. Ensure this plugin is correctly configured in `vite.config.ts` and `buffer` and `path` are included in its `include` option.
 -   **404 errors for `index.html`**: Ensure `index.html` is located in the root of your project directory.
+
+### Layout Grouping
+
+You can group fields together (e.g., for horizontal layout) using the `layout.groups` configuration in `src/config.ts`.
+
+```typescript
+import { setConfig } from "./config";
+
+setConfig({
+  layout: {
+    groups: {
+      // Key is the ID of the parent object (usually the title)
+      "Connection": [
+        {
+          keys: ["host", "port"], // Fields to group
+          className: "d-flex gap-3", // CSS classes for the container
+          title: "Endpoint" // Optional title for the group
+        }
+      ]
+    }
+  }
+});
+```
+
+### JSON Forms Adapter
+
+If you prefer using a JSON Forms compatible UI Schema, you can use the built-in adapter.
+
+```typescript
+import { adaptUiSchema } from "./ui-schema-adapter";
+
+const uiSchema = {
+  type: "HorizontalLayout",
+  elements: [
+    { type: "Control", scope: "#/properties/host" },
+    { type: "Control", scope: "#/properties/port" }
+  ]
+};
+
+// Applies the UI Schema to the object with ID "Connection"
+adaptUiSchema(uiSchema, "Connection");
+```
+
+## Testing
+
+This project uses Vitest for unit testing.

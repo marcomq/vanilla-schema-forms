@@ -13,13 +13,21 @@ export const DEFAULT_CONFIG = {
   parser: {
     titleCandidates: [
       'type', 'name', 'kind', 'id', 'mode', 'strategy', 'action', 'method', 'service', 'provider'
-    ]
+    ] as string[]
+  },
+  layout: {
+    groups: {} as Record<string, { keys: string[], title?: string, className?: string }[]>
   }
 };
 
 export let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
-export function setConfig(config: Partial<typeof DEFAULT_CONFIG>) {
+type ConfigType = typeof DEFAULT_CONFIG;
+type PartialConfig = {
+  [K in keyof ConfigType]?: Partial<ConfigType[K]>;
+};
+
+export function setConfig(config: PartialConfig) {
   if (config.sorting) {
     CONFIG.sorting = { ...CONFIG.sorting, ...config.sorting };
   }
@@ -28,5 +36,8 @@ export function setConfig(config: Partial<typeof DEFAULT_CONFIG>) {
   }
   if (config.parser) {
     CONFIG.parser = { ...CONFIG.parser, ...config.parser };
+  }
+  if (config.layout) {
+    CONFIG.layout = { ...CONFIG.layout, ...config.layout };
   }
 }

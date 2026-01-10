@@ -17,6 +17,12 @@ export interface FormNode {
   additionalProperties?: boolean | FormNode;
   oneOf?: FormNode[];
   enum?: any[];
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+  pattern?: string;
   // ... other properties we might need for rendering
 }
 
@@ -87,7 +93,8 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
 export function transformSchemaToFormNode(
   schema: JSONSchema,
   title: string = "",
-  depth: number = 0
+  depth: number = 0,
+  isRequired: boolean = false
 ): FormNode {
   if (depth > 16) {
     return { type: "string", title: title || "Max Depth Reached", description: "Maximum recursion depth exceeded." };
@@ -127,6 +134,12 @@ export function transformSchemaToFormNode(
     description: getDescriptionText(title, schemaObj.description || undefined),
     defaultValue: schemaObj.default,
     enum: schemaObj.enum as any[],
+    required: isRequired,
+    minLength: schemaObj.minLength,
+    maxLength: schemaObj.maxLength,
+    minimum: schemaObj.minimum,
+    maximum: schemaObj.maximum,
+    pattern: schemaObj.pattern,
   };
 
   // Handle oneOf
@@ -134,7 +147,7 @@ export function transformSchemaToFormNode(
   if (selection) {
     node.oneOf = selection.map((sub: JSONSchema, idx: number) => {
       const mergedSub = mergeAllOf(sub);
-      return transformSchemaToFormNode(mergedSub, inferTitle(mergedSub, idx), depth + 1);
+      return transformSchemaToFormNode(mergedSub, inferTitle(mergedSub, idx), depth + 1, isRequired);
     });
   }
 
@@ -144,7 +157,8 @@ export function transformSchemaToFormNode(
       node.properties = {};
       for (const key in schemaObj.properties) {
         const propSchema = schemaObj.properties[key] as JSONSchema;
-        node.properties[key] = transformSchemaToFormNode(propSchema, key, depth + 1);
+        const isPropRequired = schemaObj.required?.includes(key) || false;
+        node.properties[key] = transformSchemaToFormNode(propSchema, key, depth + 1, isPropRequired);
       }
     }
     if (schemaObj.additionalProperties !== undefined) {
@@ -154,7 +168,8 @@ export function transformSchemaToFormNode(
         node.additionalProperties = transformSchemaToFormNode(
           schemaObj.additionalProperties as JSONSchema,
           "Additional Property",
-          depth + 1
+          depth + 1,
+          false
         );
       }
     }
@@ -164,7 +179,7 @@ export function transformSchemaToFormNode(
   if (schemaObj.type === "array" && schemaObj.items) {
     // Assuming schema.items is a single schema object
     if (typeof schemaObj.items === "object" && !Array.isArray(schemaObj.items)) {
-      node.items = transformSchemaToFormNode(schemaObj.items as JSONSchema, "Item", depth + 1);
+      node.items = transformSchemaToFormNode(schemaObj.items as JSONSchema, "Item", depth + 1, false);
     }
   }
 
@@ -261,6 +276,13 @@ function mergeAllOf(schema: JSONSchema): JSONSchema {
     if (flattenedSub.anyOf) {
       merged.anyOf = flattenedSub.anyOf;
     }
+    // Merge validation keywords (simple overwrite/fill strategy)
+    if (flattenedSub.minLength !== undefined) merged.minLength = flattenedSub.minLength;
+    if (flattenedSub.maxLength !== undefined) merged.maxLength = flattenedSub.maxLength;
+    if (flattenedSub.minimum !== undefined) merged.minimum = flattenedSub.minimum;
+    if (flattenedSub.maximum !== undefined) merged.maximum = flattenedSub.maximum;
+    if (flattenedSub.pattern !== undefined) merged.pattern = flattenedSub.pattern;
+    if (flattenedSub.enum !== undefined) merged.enum = flattenedSub.enum;
   });
 
   return merged as JSONSchema;
