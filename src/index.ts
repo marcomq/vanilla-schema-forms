@@ -1,5 +1,6 @@
 import { FormNode, parseSchema } from "./parser";
 import { renderForm } from "./renderer";
+import * as templates from "./templates";
 
 function readFormData(node: FormNode, path: string = ""): any {
   const elementId = path ? `${path}.${node.title}` : node.title;
@@ -20,9 +21,9 @@ function readFormData(node: FormNode, path: string = ""): any {
         // Find the container for this object using the ID we assigned in renderer
         const objectContainer = document.getElementById(elementId);
         if (objectContainer) {
-          const rows = objectContainer.querySelectorAll(":scope > .additional-properties > .ap-items > .ap-row");
+          const rows = objectContainer.querySelectorAll(":scope > .js_additional-properties > .js_ap-items > .js_ap-row");
           rows.forEach((row, index) => {
-            const keyInput = row.querySelector(".ap-key") as HTMLInputElement | null;
+            const keyInput = row.querySelector(".js_ap-key") as HTMLInputElement | null;
             const key = keyInput ? keyInput.value.trim() : "";
             
             if (key) {
@@ -59,7 +60,7 @@ function readFormData(node: FormNode, path: string = ""): any {
       
       if (arrayContainer && node.items) {
         const items = node.items;
-        const rows = arrayContainer.querySelectorAll(":scope > .array-items > .array-item-row");
+        const rows = arrayContainer.querySelectorAll(":scope > .js_array-items > .js_array-item-row");
         rows.forEach((row, index) => {
           const itemTitle = `Item ${index + 1}`;
           const itemNode = { ...items, title: itemTitle };
@@ -113,9 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateJson();
     
   } catch (error) {
-    formContainer.innerHTML = `<div class="alert alert-danger">
-        <strong>Error:</strong> Could not load or parse the schema. See console for details.
-      </div>`;
+    formContainer.innerHTML = templates.renderSchemaError(error);
     console.error(error);
   }
 });

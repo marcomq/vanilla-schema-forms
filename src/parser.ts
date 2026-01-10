@@ -1,5 +1,7 @@
 import $RefParser from "@apidevtools/json-schema-ref-parser";
 import { JSONSchema } from "json-schema-to-ts";
+import { getKeyText, getDescriptionText } from "./i18n";
+import { CONFIG } from "./config";
 
 /**
  * A simplified representation of a schema property, designed for easy
@@ -81,7 +83,7 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
  * @param title - The title for the current node.
  * @returns The transformed FormNode.
  */
-function transformSchemaToFormNode(
+export function transformSchemaToFormNode(
   schema: JSONSchema,
   title: string = "",
   depth: number = 0
@@ -120,8 +122,8 @@ function transformSchemaToFormNode(
 
   const node: FormNode = {
     type: type as string,
-    title: schemaObj.title || formatTitle(title),
-    description: schemaObj.description,
+    title: getKeyText(title, schemaObj.title || formatTitle(title)),
+    description: getDescriptionText(title, schemaObj.description || undefined),
     defaultValue: schemaObj.default,
   };
 
@@ -197,7 +199,7 @@ function inferTitle(schema: JSONSchema, index: number): string {
     if (keys.length === 1) return keys[0];
   }
 
-  const candidates = ['type', 'name', 'kind', 'id', 'mode', 'strategy', 'action', 'method', 'service', 'provider'];
+  const candidates = CONFIG.parser.titleCandidates;
   for (const key of candidates) {
     if (schemaObj.properties?.[key]) {
       const prop = schemaObj.properties[key] as JSONSchema;
@@ -260,6 +262,10 @@ function mergeAllOf(schema: JSONSchema): JSONSchema {
 
 function formatTitle(key: string): string {
   if (!key) return "";
+  // Check mapping first
+  const mapped = getKeyText(key, "");
+  if (mapped) return mapped;
+
   return key
     .replace(/[-_]/g, " ") // snake_case and kebab-case
     .replace(/([a-z])([A-Z])/g, "$1 $2") // camelCase

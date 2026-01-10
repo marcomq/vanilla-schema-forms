@@ -1,5 +1,6 @@
 import { FormNode } from "./parser";
 import * as templates from "./templates";
+import { CONFIG } from "./config";
 
 // Registry to store nodes for dynamic rendering (Arrays, OneOf)
 const NODE_REGISTRY = new Map<string, FormNode>();
@@ -20,15 +21,7 @@ const UI_CONFIG: Record<string, any> = {
       
       const optionsHtml = renderProperties(otherProps, elementId);
 
-      return `
-        <fieldset class="border p-3 rounded mb-3 ui_tls" id="${elementId}">
-            <legend class="h6">${node.title}</legend>
-            ${checkbox}
-            <div id="${elementId}-options" style="display: none;" class="mt-3">
-                ${optionsHtml}
-            </div>
-        </fieldset>
-      `;
+      return templates.renderTlsGroup(node, elementId, checkbox, optionsHtml);
     }
   },
   "consumer mode": {
@@ -45,7 +38,7 @@ const UI_CONFIG: Record<string, any> = {
 export function renderForm(rootNode: FormNode, formContainer: HTMLElement) {
   NODE_REGISTRY.clear();
   const html = renderNode(rootNode);
-  formContainer.innerHTML = `<form id="generated-form">${html}</form>`;
+  formContainer.innerHTML = templates.renderFormWrapper(html);
   attachInteractivity(formContainer);
 }
 
@@ -55,6 +48,10 @@ function renderNode(node: FormNode, path: string = "", headless: boolean = false
   }
 
   const elementId = path ? `${path}.${node.title}` : node.title;
+
+  if (CONFIG.visibility.hiddenPaths.includes(elementId) || CONFIG.visibility.hiddenKeys.includes(node.title)) {
+    return "";
+  }
   
   // Register node for potential lookups
   NODE_REGISTRY.set(elementId, node);
@@ -78,17 +75,17 @@ function renderNode(node: FormNode, path: string = "", headless: boolean = false
     case "boolean": return templates.renderBoolean(node, elementId);
     case "object": return renderObject(node, path, elementId, headless);
     case "array": return templates.renderArray(node, elementId);
-    case "null": return `<div class="ui_null">${node.type}</div>`;
-    default: return `<div class="alert alert-warning">Unsupported type: ${node.type}</div>`;
+    case "null": return templates.renderNull(node);
+    default: return templates.renderUnsupported(node);
   }
 }
 
-function renderObject(node: FormNode, path: string, elementId: string, headless: boolean = false): string {
+function renderObject(node: FormNode, _path: string, elementId: string, headless: boolean = false): string {
   const props = node.properties ? renderProperties(node.properties, elementId) : '';
   const ap = templates.renderAdditionalProperties(node, elementId);
   const oneOf = templates.renderOneOf(node, elementId);
   if (headless) {
-    return `<div id="${elementId}" class="headless-object">${props + ap + oneOf}</div>`;
+    return templates.renderHeadlessObject(elementId, props + ap + oneOf);
   }
   return templates.renderObject(node, elementId, props + ap + oneOf);
 }
@@ -99,7 +96,7 @@ function renderProperties(properties: { [key: string]: FormNode }, parentId: str
     const nodeB = properties[b];
     
     // 1. Priority fields (e.g. name, id, enabled)
-    const priority = ['name', 'id', 'title', 'type', 'enabled', 'active', 'url', 'brokers', 'username', 'password', 'topic', 'group', 'key', 'value', 'required'];
+    const priority = CONFIG.sorting.perObjectPriority[parentId] || CONFIG.sorting.defaultPriority;
     const idxA = priority.indexOf(a.toLowerCase());
     const idxB = priority.indexOf(b.toLowerCase());
     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -142,7 +139,7 @@ function attachInteractivity(container: HTMLElement) {
   // 2. OneOf Selector
   container.addEventListener('change', (e) => {
     const target = e.target as HTMLSelectElement;
-    if (target.classList.contains('oneof-selector')) {
+    if (target.classList.contains('js_oneof-selector')) {
       const elementId = target.getAttribute('data-id');
       const node = NODE_REGISTRY.get(elementId!);
       const contentContainer = document.getElementById(`${elementId}__oneof_content`);
@@ -157,12 +154,12 @@ function attachInteractivity(container: HTMLElement) {
   });
   
   // Initialize OneOfs
-  container.querySelectorAll('.oneof-selector').forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
+  container.querySelectorAll('.js_oneof-selector').forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
 
   // 3. Array Add Item
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('btn-add-array-item')) {
+    if (target.classList.contains('js_btn-add-array-item')) {
       const elementId = target.getAttribute('data-id');
       const targetContainerId = target.getAttribute('data-target');
       const node = NODE_REGISTRY.get(elementId!);
@@ -180,16 +177,16 @@ function attachInteractivity(container: HTMLElement) {
     }
     
     // 4. Array Remove Item
-    if (target.classList.contains('btn-remove-item')) {
-      target.closest('.array-item-row')?.remove();
+    if (target.classList.contains('js_btn-remove-item')) {
+      target.closest('.js_array-item-row')?.remove();
       container.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     // 5. Additional Properties Add
-    if (target.classList.contains('btn-add-ap')) {
+    if (target.classList.contains('js_btn-add-ap')) {
       const elementId = target.getAttribute('data-id');
       const node = NODE_REGISTRY.get(elementId!);
-      const container = target.parentElement?.querySelector('.ap-items');
+      const container = target.parentElement?.querySelector('.js_ap-items');
       
       if (node && container) {
         const index = container.children.length;
@@ -202,8 +199,8 @@ function attachInteractivity(container: HTMLElement) {
       }
     }
     
-    if (target.classList.contains('btn-remove-ap')) {
-      target.closest('.ap-row')?.remove();
+    if (target.classList.contains('js_btn-remove-ap')) {
+      target.closest('.js_ap-row')?.remove();
       container.dispatchEvent(new Event('change', { bubbles: true }));
     }
   });

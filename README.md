@@ -8,6 +8,8 @@ This project is a web-based application that dynamically generates HTML forms fr
 -   **Schema Dereferencing**: Resolves `$ref` pointers within your JSON Schema using `@apidevtools/json-schema-ref-parser`.
 -   **Type-Safe Development**: Written in TypeScript for robust and maintainable code.
 -   **Modern Tooling**: Utilizes Vite for development and bundling, providing a fast and efficient workflow.
+-   **Customizable UI**: Configurable field sorting, visibility, and text overrides via configuration files.
+-   **Unit Testing**: Includes tests for core parsing logic using Vitest.
 
 ## Status
 
@@ -35,9 +37,13 @@ The application follows a clear pipeline to transform a JSON Schema into an inte
 ├── public/               # Static assets (e.g., schema.json will be moved here if needed)
 │   └── (optional: schema.json) # schema.json is served from here
 └── src/
+    ├── config.ts         # Configuration for sorting, visibility, and heuristics
+    ├── i18n.ts           # Text overrides and internationalization mappings
     ├── index.ts          # Main application logic, orchestrates parsing and rendering
     ├── parser.ts         # Parses JSON Schema, dereferences, and transforms to FormNode tree
+    ├── parser.test.ts    # Unit tests for the parser
     └── renderer.ts       # Renders the FormNode tree into HTML form elements
+    └── templates.ts      # HTML template strings for UI components
 ```
 
 ## Setup
