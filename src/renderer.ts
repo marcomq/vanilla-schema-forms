@@ -9,6 +9,8 @@ export interface CustomRenderer {
   render?: (node: FormNode, path: string, elementId: string) => string;
   widget?: string;
   options?: string[];
+  getDefaultKey?: (index: number) => string;
+  renderAdditionalPropertyRow?: (valueHtml: string, defaultKey: string) => string;
 }
 
 // Configuration for specific fields
@@ -35,12 +37,29 @@ export function renderForm(rootNode: FormNode, formContainer: HTMLElement) {
   attachInteractivity(formContainer);
 }
 
+function findCustomRenderer(elementId: string): CustomRenderer | undefined {
+  const fullPathKey = elementId.toLowerCase();
+  let maxMatchLen = -1;
+  let bestMatch: CustomRenderer | undefined;
+
+  for (const key in customRenderers) {
+    const lowerKey = key.toLowerCase();
+    if (fullPathKey === lowerKey || fullPathKey.endsWith('.' + lowerKey)) {
+      if (lowerKey.length > maxMatchLen) {
+        maxMatchLen = lowerKey.length;
+        bestMatch = customRenderers[key];
+      }
+    }
+  }
+  return bestMatch;
+}
+
 export function renderNode(node: FormNode, path: string = "", headless: boolean = false): string {
-  if (node.description?.includes("Consumer only")) {
+  const elementId = path ? `${path}.${node.title}` : node.title;
+
+  if (CONFIG.visibility.customVisibility && !CONFIG.visibility.customVisibility(node, elementId)) {
     return "";
   }
-
-  const elementId = path ? `${path}.${node.title}` : node.title;
 
   if (CONFIG.visibility.hiddenPaths.includes(elementId) || CONFIG.visibility.hiddenKeys.includes(node.title)) {
     return "";
@@ -50,19 +69,7 @@ export function renderNode(node: FormNode, path: string = "", headless: boolean 
   NODE_REGISTRY.set(elementId, node);
 
   // 1. Custom Renderers
-  const fullPathKey = elementId.toLowerCase();
-  let renderer: CustomRenderer | undefined;
-  let maxMatchLen = -1;
-
-  for (const key in customRenderers) {
-    const lowerKey = key.toLowerCase();
-    if (fullPathKey === lowerKey || fullPathKey.endsWith('.' + lowerKey)) {
-      if (lowerKey.length > maxMatchLen) {
-        maxMatchLen = lowerKey.length;
-        renderer = customRenderers[key];
-      }
-    }
-  }
+  const renderer = findCustomRenderer(elementId);
 
   if (renderer?.render) {
     return renderer.render(node, path, elementId);
@@ -219,7 +226,22 @@ function attachInteractivity(container: HTMLElement) {
         const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: 'Value' } as FormNode;
         const valueNode = { ...valueSchema, title: 'Value' };
         const valueHtml = renderNode(valueNode, `${elementId}.__ap_${index}`);
-        const rowHtml = templates.renderAdditionalPropertyRow(valueHtml);
+        
+        let defaultKey = "";
+        const renderer = findCustomRenderer(elementId || "");
+        
+        if (renderer?.getDefaultKey) {
+          defaultKey = renderer.getDefaultKey(index);
+        } else {
+          const keyPattern = target.getAttribute('data-key-pattern');
+          if (keyPattern) {
+            defaultKey = keyPattern.replace('{i}', (index + 1).toString());
+          }
+        }
+        
+        const rowHtml = renderer?.renderAdditionalPropertyRow 
+          ? renderer.renderAdditionalPropertyRow(valueHtml, defaultKey)
+          : templates.renderAdditionalPropertyRow(valueHtml, defaultKey);
         container.insertAdjacentHTML('beforeend', rowHtml);
         container.dispatchEvent(new Event('change', { bubbles: true }));
       }

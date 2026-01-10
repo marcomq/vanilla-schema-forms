@@ -128,9 +128,13 @@ export function transformSchemaToFormNode(
     type = type[0];
   }
 
+  // Determine the key to use for I18N lookup.
+  // If we are at the root (title is empty), use the schema title if available.
+  const i18nKey = title || schemaObj.title || "";
+
   const node: FormNode = {
     type: type as string,
-    title: getKeyText(title, schemaObj.title || formatTitle(title)),
+    title: getKeyText(i18nKey, schemaObj.title || formatTitle(title)),
     description: getDescriptionText(title, schemaObj.description || undefined),
     defaultValue: schemaObj.default,
     enum: schemaObj.enum as any[],

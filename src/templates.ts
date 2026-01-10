@@ -1,7 +1,7 @@
 import { FormNode } from "./parser";
 import { getUiText } from "./i18n";
 
-const defaultTemplates = {
+const defaultTemplates: any = {
   renderString: (node: FormNode, elementId: string): string => {
     const required = node.required ? 'required' : '';
     const pattern = node.pattern ? `pattern="${node.pattern}"` : '';
@@ -68,13 +68,19 @@ const defaultTemplates = {
   `;
   },
 
-  renderAdditionalProperties: (node: FormNode, elementId: string): string => {
+  renderAdditionalProperties: (node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): string => {
     if (!node.additionalProperties) return "";
+    const titleHtml = options?.title === null ? '' : `<h6>${options?.title ?? getUiText("additional_properties", "Additional Properties")}</h6>`;
+    const keyPatternAttr = options?.keyPattern ? `data-key-pattern="${options.keyPattern}"` : '';
+
     return `
     <div class="additional-properties js_additional-properties mt-3 border-top pt-2">
-      <h6>${getUiText("additional_properties", "Additional Properties")}</h6>
+      ${titleHtml}
       <div class="ap-items js_ap-items"></div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-add-ap js_btn-add-ap" data-id="${elementId}">${getUiText("add_property", "Add Property")}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-add-ap js_btn-add-ap" 
+        data-id="${elementId}" ${keyPatternAttr}>
+            ${getUiText("add_property", "Add Property")}
+      </button>
     </div>
   `;
   },
@@ -130,10 +136,10 @@ const defaultTemplates = {
   `;
   },
 
-  renderAdditionalPropertyRow: (valueHtml: string): string => {
+  renderAdditionalPropertyRow: (valueHtml: string, defaultKey: string = ""): string => {
     return `
     <div class="d-flex gap-2 mb-2 align-items-end ap-row js_ap-row">
-      <div><label class="form-label small">Key</label><input type="text" class="form-control form-control-sm ap-key js_ap-key" placeholder="Key"></div>
+      <div><label class="form-label small">Key</label><input type="text" class="form-control form-control-sm ap-key js_ap-key" placeholder="Key" value="${defaultKey}"></div>
       <div class="flex-grow-1">${valueHtml}</div>
       <button type="button" class="btn btn-sm btn-outline-danger btn-remove-ap js_btn-remove-ap">X</button>
     </div>
@@ -188,11 +194,11 @@ export function renderNumber(node: FormNode, elementId: string): string { return
 export function renderBoolean(node: FormNode, elementId: string, attributes: string = ""): string { return currentTemplates.renderBoolean(node, elementId, attributes); }
 export function renderSelect(node: FormNode, elementId: string, options: string[] = []): string { return currentTemplates.renderSelect(node, elementId, options); }
 export function renderObject(node: FormNode, elementId: string, contentHtml: string): string { return currentTemplates.renderObject(node, elementId, contentHtml); }
-export function renderAdditionalProperties(node: FormNode, elementId: string): string { return currentTemplates.renderAdditionalProperties(node, elementId); }
+export function renderAdditionalProperties(node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): string { return currentTemplates.renderAdditionalProperties(node, elementId, options); }
 export function renderOneOf(node: FormNode, elementId: string): string { return currentTemplates.renderOneOf(node, elementId); }
 export function renderArray(node: FormNode, elementId: string): string { return currentTemplates.renderArray(node, elementId); }
 export function renderArrayItem(itemHtml: string): string { return currentTemplates.renderArrayItem(itemHtml); }
-export function renderAdditionalPropertyRow(valueHtml: string): string { return currentTemplates.renderAdditionalPropertyRow(valueHtml); }
+export function renderAdditionalPropertyRow(valueHtml: string, defaultKey: string = ""): string { return currentTemplates.renderAdditionalPropertyRow(valueHtml, defaultKey); }
 export function renderLayoutGroup(title: string | undefined, contentHtml: string, className?: string): string { return currentTemplates.renderLayoutGroup(title, contentHtml, className); }
 export function renderFormWrapper(html: string): string { return currentTemplates.renderFormWrapper(html); }
 export function renderNull(node: FormNode): string { return currentTemplates.renderNull(node); }

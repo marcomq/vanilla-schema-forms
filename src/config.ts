@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG = {
   visibility: {
     hiddenPaths: [] as string[],
     hiddenKeys: [] as string[],
+    customVisibility: undefined as ((node: any, path: string) => boolean) | undefined,
   },
   parser: {
     titleCandidates: [

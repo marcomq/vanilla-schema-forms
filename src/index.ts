@@ -1,7 +1,7 @@
 import { parseSchema } from "./parser";
-import { renderForm, renderNode, setCustomRenderers } from "./renderer";
+import { renderForm, setCustomRenderers } from "./renderer";
 import * as templates from "./templates";
-import { CUSTOM_RENDERERS } from "./custom-renderers";
+import { CUSTOM_RENDERERS } from "./customization";
 import { readFormData } from "./form-data-reader";
 
 export { setConfig } from "./config";
