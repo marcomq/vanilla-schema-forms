@@ -120,7 +120,7 @@ function transformSchemaToFormNode(
 
   const node: FormNode = {
     type: type as string,
-    title: schemaObj.title || title,
+    title: schemaObj.title || formatTitle(title),
     description: schemaObj.description,
     defaultValue: schemaObj.default,
   };
@@ -256,4 +256,12 @@ function mergeAllOf(schema: JSONSchema): JSONSchema {
   });
 
   return merged as JSONSchema;
+}
+
+function formatTitle(key: string): string {
+  if (!key) return "";
+  return key
+    .replace(/[-_]/g, " ") // snake_case and kebab-case
+    .replace(/([a-z])([A-Z])/g, "$1 $2") // camelCase
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // Title Case
 }

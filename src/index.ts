@@ -32,7 +32,9 @@ function readFormData(node: FormNode, path: string = ""): any {
                 ? { type: 'string', title: 'Value' } as FormNode 
                 : node.additionalProperties;
               
-              obj[key] = readFormData(valueSchema as FormNode, valueIdPath.replace(".Value", ""));
+              // Force title to 'Value' to match renderer
+              const valueNode = { ...valueSchema as FormNode, title: 'Value' };
+              obj[key] = readFormData(valueNode, valueIdPath);
             }
           });
         }
@@ -98,14 +100,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Parsed schema:", rootNode);
     renderForm(rootNode, formContainer);
 
-    formContainer.addEventListener("input", () => {
+    const updateJson = () => {
       const data = readFormData(rootNode);
       jsonOutput.textContent = JSON.stringify(data, null, 2);
-    });
+      jsonOutput.style.whiteSpace = "pre";
+    };
+
+    formContainer.addEventListener("input", updateJson);
+    formContainer.addEventListener("change", updateJson);
 
     // Initial population
-    const initialData = readFormData(rootNode);
-    jsonOutput.textContent = JSON.stringify(initialData, null, 2);
+    updateJson();
     
   } catch (error) {
     formContainer.innerHTML = `<div class="alert alert-danger">

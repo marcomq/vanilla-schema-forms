@@ -21,7 +21,7 @@ const UI_CONFIG: Record<string, any> = {
       const optionsHtml = renderProperties(otherProps, elementId);
 
       return `
-        <fieldset class="border p-3 rounded mb-3" id="${elementId}">
+        <fieldset class="border p-3 rounded mb-3 ui_tls" id="${elementId}">
             <legend class="h6">${node.title}</legend>
             ${checkbox}
             <div id="${elementId}-options" style="display: none;" class="mt-3">
@@ -49,8 +49,8 @@ export function renderForm(rootNode: FormNode, formContainer: HTMLElement) {
   attachInteractivity(formContainer);
 }
 
-function renderNode(node: FormNode, path: string = ""): string {
-  if (node.description?.includes("Consumer only") && !node.title.toLowerCase().includes("delay")) {
+function renderNode(node: FormNode, path: string = "", headless: boolean = false): string {
+  if (node.description?.includes("Consumer only")) {
     return "";
   }
 
@@ -76,21 +76,48 @@ function renderNode(node: FormNode, path: string = ""): string {
     case "number":
     case "integer": return templates.renderNumber(node, elementId);
     case "boolean": return templates.renderBoolean(node, elementId);
-    case "object": return renderObject(node, path, elementId);
+    case "object": return renderObject(node, path, elementId, headless);
     case "array": return templates.renderArray(node, elementId);
+    case "null": return `<div class="ui_null">${node.type}</div>`;
     default: return `<div class="alert alert-warning">Unsupported type: ${node.type}</div>`;
   }
 }
 
-function renderObject(node: FormNode, path: string, elementId: string): string {
+function renderObject(node: FormNode, path: string, elementId: string, headless: boolean = false): string {
   const props = node.properties ? renderProperties(node.properties, elementId) : '';
   const ap = templates.renderAdditionalProperties(node, elementId);
   const oneOf = templates.renderOneOf(node, elementId);
+  if (headless) {
+    return `<div id="${elementId}" class="headless-object">${props + ap + oneOf}</div>`;
+  }
   return templates.renderObject(node, elementId, props + ap + oneOf);
 }
 
 function renderProperties(properties: { [key: string]: FormNode }, parentId: string): string {
-  return Object.keys(properties)
+  const keys = Object.keys(properties).sort((a, b) => {
+    const nodeA = properties[a];
+    const nodeB = properties[b];
+    
+    // 1. Priority fields (e.g. name, id, enabled)
+    const priority = ['name', 'id', 'title', 'type', 'enabled', 'active', 'url', 'brokers', 'username', 'password', 'topic', 'group', 'key', 'value', 'required'];
+    const idxA = priority.indexOf(a.toLowerCase());
+    const idxB = priority.indexOf(b.toLowerCase());
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+
+    // 2. Primitives before Objects/Arrays
+    const isPrimitiveA = ['string', 'number', 'integer', 'boolean'].includes(nodeA.type);
+    const isPrimitiveB = ['string', 'number', 'integer', 'boolean'].includes(nodeB.type);
+    if (isPrimitiveA !== isPrimitiveB) {
+      return isPrimitiveA ? -1 : 1;
+    }
+
+    // 3. Alphabetical
+    return a.localeCompare(b);
+  });
+
+  return keys
     .map(key => renderNode(properties[key], parentId))
     .join('');
 }
@@ -124,7 +151,7 @@ function attachInteractivity(container: HTMLElement) {
         const selectedIdx = parseInt(target.value, 10);
         const selectedNode = node.oneOf[selectedIdx];
         const path = elementId!.substring(0, elementId!.lastIndexOf('.'));
-        contentContainer.innerHTML = renderNode(selectedNode, path);
+        contentContainer.innerHTML = renderNode(selectedNode, path, true);
       }
     }
   });
@@ -148,12 +175,14 @@ function attachInteractivity(container: HTMLElement) {
         const innerHtml = renderNode(itemNode, `${elementId}.${index}`);
         const itemHtml = templates.renderArrayItem(innerHtml);
         container!.insertAdjacentHTML('beforeend', itemHtml);
+        container?.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
     
     // 4. Array Remove Item
     if (target.classList.contains('btn-remove-item')) {
       target.closest('.array-item-row')?.remove();
+      container.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     // 5. Additional Properties Add
@@ -169,11 +198,13 @@ function attachInteractivity(container: HTMLElement) {
         const valueHtml = renderNode(valueNode, `${elementId}.__ap_${index}`);
         const rowHtml = templates.renderAdditionalPropertyRow(valueHtml);
         container.insertAdjacentHTML('beforeend', rowHtml);
+        container.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
     
     if (target.classList.contains('btn-remove-ap')) {
       target.closest('.ap-row')?.remove();
+      container.dispatchEvent(new Event('change', { bubbles: true }));
     }
   });
 }

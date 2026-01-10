@@ -15,6 +15,7 @@ export function renderNumber(node: FormNode, elementId: string): string {
     <div class="mb-3">
       <label class="form-label">${node.title}</label>
       <input type="number" class="form-control" id="${elementId}" value="${node.defaultValue || ''}">
+      ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
 }
@@ -24,6 +25,7 @@ export function renderBoolean(node: FormNode, elementId: string, attributes: str
     <div class="mb-3 form-check">
       <input type="checkbox" class="form-check-input" id="${elementId}" ${node.defaultValue ? 'checked' : ''} ${attributes}>
       <label class="form-check-label" for="${elementId}">${node.title}</label>
+      ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
 }
@@ -36,14 +38,16 @@ export function renderSelect(node: FormNode, elementId: string, options: string[
       <select class="form-select" id="${elementId}">
         ${opts}
       </select>
+      ${node.description ? `<div class="form-text">${node.description}</div>` : ''}
     </div>
   `;
 }
 
 export function renderObject(node: FormNode, elementId: string, contentHtml: string): string {
   return `
-    <fieldset class="border p-3 rounded mb-3" id="${elementId}">
+    <fieldset class="border p-3 rounded mb-3 ui_obj" id="${elementId}">
       <legend class="h6">${node.title}</legend>
+      ${node.description ? `<div class="form-text mb-3">${node.description}</div>` : ''}
       ${contentHtml}
     </fieldset>
   `;
@@ -63,7 +67,20 @@ export function renderAdditionalProperties(node: FormNode, elementId: string): s
 export function renderOneOf(node: FormNode, elementId: string): string {
   if (!node.oneOf || node.oneOf.length === 0) return "";
   
-  const options = node.oneOf.map((opt, idx) => `<option value="${idx}">${opt.title}</option>`).join('');
+  // Try to find a "null" option to select by default
+  let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
+  if (selectedIndex === -1) {
+    selectedIndex = node.oneOf.findIndex(opt => {
+      const title = opt.title.toLowerCase();
+      return title === 'null' || title === 'none';
+    });
+  }
+  if (selectedIndex === -1) selectedIndex = 0;
+
+  const options = node.oneOf.map((opt, idx) => {
+    const selected = idx === selectedIndex ? 'selected' : '';
+    return `<option value="${idx}" ${selected}>${opt.title}</option>`;
+  }).join('');
   
   return `
     <div class="mt-3 border-top pt-3">
@@ -78,8 +95,9 @@ export function renderOneOf(node: FormNode, elementId: string): string {
 
 export function renderArray(node: FormNode, elementId: string): string {
   return `
-    <fieldset class="border p-3 rounded mb-3" id="${elementId}">
+    <fieldset class="border p-3 rounded mb-3 ui_arr" id="${elementId}">
       <legend class="h6">${node.title}</legend>
+      ${node.description ? `<div class="form-text mb-3">${node.description}</div>` : ''}
       <div class="array-items" id="${elementId}-items"></div>
       ${node.items ? `<button type="button" class="btn btn-sm btn-outline-primary mt-2 btn-add-array-item" data-id="${elementId}" data-target="${elementId}-items">Add Item</button>` : ''}
     </fieldset>
