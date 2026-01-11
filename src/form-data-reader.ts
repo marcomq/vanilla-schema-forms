@@ -1,99 +1,62 @@
 import { FormNode } from "./parser";
 
-export function readFormData(node: FormNode, path: string = ""): any {
-  let segment = node.key;
-  if (!segment) {
-    // Match logic in renderer.ts
-    const safeTitle = node.title.replace(/[^a-zA-Z0-9]/g, '');
-    segment = path ? `__var_${safeTitle}` : (safeTitle || 'root');
-  }
+/**
+ * Generates the default data structure for a given FormNode.
+ * This replaces the need to scrape the DOM for initial data.
+ */
+export function generateDefaultData(node: FormNode): any {
+  if (node.defaultValue !== undefined) return node.defaultValue;
 
-  const elementId = path ? `${path}.${segment}` : segment;
-
-  switch (node.type) {
-    case "object":
-      const obj: { [key: string]: any } = {};
-      
-      // Read defined properties
-      if (node.properties) {
-        for (const key in node.properties) {
-          obj[key] = readFormData(node.properties[key], elementId);
+  if (node.type === 'object') {
+    const obj: any = {};
+    
+    if (node.properties) {
+      for (const key in node.properties) {
+        const prop = node.properties[key];
+        // Include if required, has default, or is a complex type (object/array/oneOf) that might contain defaults
+        const isComplex = prop.type === 'object' || prop.type === 'array' || (prop.oneOf && prop.oneOf.length > 0);
+        if (prop.required || prop.defaultValue !== undefined || isComplex) {
+           obj[key] = generateDefaultData(prop);
         }
       }
+    }
 
-      // Read additional properties
-      if (node.additionalProperties) {
-        // Find the container for this object using the ID we assigned in renderer
-        const objectContainer = document.getElementById(elementId);
-        if (objectContainer) {
-          const rows = objectContainer.querySelectorAll(":scope > .js_additional-properties > .js_ap-items > .js_ap-row");
-          rows.forEach((row, index) => {
-            const keyInput = row.querySelector(".js_ap-key") as HTMLInputElement | null;
-            const key = keyInput ? keyInput.value.trim() : "";
-            
-            if (key) {
-              // Reconstruct the ID used in renderer for the value
-              const valueIdPath = `${elementId}.__ap_${index}`;
-              const valueSchema = typeof node.additionalProperties === 'boolean' 
-                ? { type: 'string', title: 'Value' } as FormNode 
-                : node.additionalProperties;
-              
-              // Force title/key to 'Value' to match renderer
-              const valueNode = { ...valueSchema as FormNode, title: 'Value', key: 'Value' };
-              obj[key] = readFormData(valueNode, valueIdPath);
-            }
-          });
-        }
-      }
-
-      // Read oneOf selection
-      if (node.oneOf) {
-        const selector = document.getElementById(`${elementId}__selector`) as HTMLSelectElement | null;
-        if (selector) {
-          const index = parseInt(selector.value, 10);
-          if (!isNaN(index) && node.oneOf[index]) {
-            const selectedNode = node.oneOf[index];
-            const oneOfData = readFormData(selectedNode, elementId); // Use current node ID as path
-            Object.assign(obj, oneOfData);
-          }
-        }
-      }
-      
-      return obj;
-
-    case "array":
-      const arrayResult: any[] = [];
-      const arrayContainer = document.getElementById(elementId);
-      
-      if (arrayContainer && node.items) {
-        const items = node.items;
-        const rows = arrayContainer.querySelectorAll(":scope > .js_array-items > .js_array-item-row");
-        rows.forEach((row, index) => {
-          const itemTitle = `Item ${index + 1}`;
-          const itemNode = { ...items, title: itemTitle };
-          const itemPath = `${elementId}.${index}`;
-          
-          arrayResult.push(readFormData(itemNode, itemPath));
+    // Handle oneOf defaults
+    if (node.oneOf && node.oneOf.length > 0) {
+      let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
+      if (selectedIndex === -1) {
+        selectedIndex = node.oneOf.findIndex(opt => {
+          const title = opt.title ? opt.title.toLowerCase() : "";
+          return title === 'null' || title === 'none';
         });
       }
-      return arrayResult;
+      if (selectedIndex === -1) selectedIndex = 0;
 
-    case "number":
-    case "integer":
-      const numElement = document.getElementById(elementId) as HTMLInputElement | null;
-      return numElement ? (isNaN(numElement.valueAsNumber) ? undefined : numElement.valueAsNumber) : undefined;
+      const oneOfDefault = generateDefaultData(node.oneOf[selectedIndex]);
+      if (oneOfDefault !== undefined) {
+        if (typeof oneOfDefault === 'object' && oneOfDefault !== null) {
+          Object.assign(obj, oneOfDefault);
+        }
+      }
+    }
+    
+    return obj;
+  }
 
-    case "boolean":
-      const boolElement = document.getElementById(elementId) as HTMLInputElement | null;
-      return boolElement ? boolElement.checked : undefined;
+  if (node.type === 'array') {
+    return [];
+  }
 
-    case "null":
-      return null;
+  if (node.enum && node.enum.length > 0) {
+    return node.enum[0];
+  }
 
-    case "string":
-    default:
-      const strElement = document.getElementById(elementId) as HTMLInputElement | HTMLSelectElement | null;
-      if (!strElement) return undefined;
-      return strElement.value === "" ? undefined : strElement.value;
+  switch (node.type) {
+    case 'string': return "";
+    case 'number': 
+    case 'integer': return 0;
+    case 'boolean': return false;
+    case 'null': return null;
+    default: return undefined;
   }
 }

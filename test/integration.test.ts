@@ -2,18 +2,20 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseSchema } from '../src/parser';
 import { renderForm } from '../src/renderer';
-import { formStore } from '../src/state';
-import { readFormData } from '../src/form-data-reader';
+import { Store } from '../src/state';
+import { generateDefaultData } from '../src/form-data-reader';
+import { CONFIG } from '../src/config';
 
 describe('Integration Tests', () => {
   let container: HTMLElement;
+  let store: Store<any>;
 
   beforeEach(() => {
     // Setup DOM environment
     container = document.createElement('div');
     container.id = 'form-container';
     document.body.appendChild(container);
-    formStore.reset({});
+    store = new Store({});
   });
 
   afterEach(() => {
@@ -25,7 +27,6 @@ describe('Integration Tests', () => {
 
   it('should parse, render, and generate JSON for a schema with definitions', async () => {
     const schema = {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "definitions": {
         "address": {
           "type": "object",
@@ -48,7 +49,7 @@ describe('Integration Tests', () => {
     expect(rootNode).toBeDefined();
 
     // 2. Render
-    renderForm(rootNode, container);
+    renderForm(rootNode, container, store, CONFIG);
     
     // Verify HTML structure
     const streetInput = document.getElementById('root.billing.street') as HTMLInputElement;
@@ -56,10 +57,10 @@ describe('Integration Tests', () => {
     expect(streetInput.value).toBe('Main St');
 
     // 3. Initialize Store & Verify JSON
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
     
-    const data = formStore.get();
+    const data = store.get();
     expect(data).toEqual({
       billing: {
         street: "Main St",
@@ -94,7 +95,7 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container);
+    renderForm(rootNode, container, store, CONFIG);
 
     // Verify default selection (Credit Card)
     const selector = document.getElementById('root.payment__selector') as HTMLSelectElement;
@@ -107,9 +108,9 @@ describe('Integration Tests', () => {
     expect(ccInput.value).toBe('1234');
 
     // Verify JSON
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
-    expect(formStore.get()).toEqual({
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
+    expect(store.get()).toEqual({
       payment: {
         cc_number: "1234"
       }
@@ -125,7 +126,7 @@ describe('Integration Tests', () => {
     expect(receiptInput.checked).toBe(true);
 
     // Verify JSON updated
-    expect(formStore.get()).toEqual({
+    expect(store.get()).toEqual({
       payment: {
         receipt: true
       }
@@ -149,12 +150,12 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container);
+    renderForm(rootNode, container, store, CONFIG);
 
     // Initial state: empty array
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
-    expect(formStore.get()).toEqual({ users: [] });
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
+    expect(store.get()).toEqual({ users: [] });
 
     // Add item
     const addButton = container.querySelector('.js_btn-add-array-item') as HTMLButtonElement;
@@ -166,7 +167,7 @@ describe('Integration Tests', () => {
     expect(nameInput).not.toBeNull();
 
     // Verify JSON (Store should update on click via renderer event listener)
-    expect(formStore.get()).toEqual({
+    expect(store.get()).toEqual({
       users: [{}] 
     });
 
@@ -174,7 +175,7 @@ describe('Integration Tests', () => {
     nameInput.value = "Alice";
     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-    expect(formStore.get()).toEqual({
+    expect(store.get()).toEqual({
       users: [{ name: "Alice" }]
     });
   });
@@ -197,7 +198,7 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container);
+    renderForm(rootNode, container, store, CONFIG);
 
     // Verify HTML structure
     const inputA = document.getElementById('root.propA') as HTMLInputElement;
@@ -209,10 +210,10 @@ describe('Integration Tests', () => {
     expect(inputB.value).toBe('B');
 
     // Verify JSON
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
     
-    expect(formStore.get()).toEqual({
+    expect(store.get()).toEqual({
       propA: "A",
       propB: "B"
     });
@@ -235,7 +236,7 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container);
+    renderForm(rootNode, container, store, CONFIG);
 
     // Verify selector exists
     const selector = document.getElementById('root__selector') as HTMLSelectElement;
@@ -248,9 +249,9 @@ describe('Integration Tests', () => {
     expect(inputA.value).toBe('A');
 
     // Verify JSON
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
-    expect(formStore.get()).toEqual({ valA: "A" });
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
+    expect(store.get()).toEqual({ valA: "A" });
 
     // Switch to OptionB
     selector.value = '1';
@@ -260,6 +261,6 @@ describe('Integration Tests', () => {
     expect(inputB).not.toBeNull();
     expect(inputB.value).toBe('B');
 
-    expect(formStore.get()).toEqual({ valB: "B" });
+    expect(store.get()).toEqual({ valB: "B" });
   });
 });

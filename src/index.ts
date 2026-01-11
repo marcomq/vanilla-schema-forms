@@ -1,16 +1,24 @@
 import { parseSchema } from "./parser";
-import { renderForm } from "./renderer";
+import { renderForm, type CustomRenderer } from "./renderer";
 import * as templates from "./templates";
-import { readFormData } from "./form-data-reader";
-import { formStore } from "./state";
+import { generateDefaultData } from "./form-data-reader";
+import { Store } from "./state";
+import { CONFIG } from "./config";
 
 export { setConfig } from "./config";
 export { setI18n } from "./i18n";
 export { setTemplates } from "./templates";
-export { setCustomRenderers, renderNode, renderObject, renderProperties } from "./renderer";
+export { renderNode, renderObject, renderProperties } from "./renderer";
+export type { RenderContext, CustomRenderer } from "./renderer";
 export { templates };
-export { readFormData } from "./form-data-reader";
+export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
+
+let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
+
+export function setCustomRenderers(renderers: Record<string, CustomRenderer<any>>) {
+  globalCustomRenderers = { ...globalCustomRenderers, ...renderers };
+}
 
 /**
  * Initializes the form in the specified container.
@@ -31,14 +39,15 @@ export async function init(containerId: string, schemaOrUrl: string | any, onDat
   try {
     const rootNode = await parseSchema(schemaOrUrl);
 
-    renderForm(rootNode, formContainer);
+    const store = new Store<Record<string, any>>({});
+    renderForm(rootNode, formContainer, store, CONFIG, globalCustomRenderers);
 
     // Initialize store with data scraped from the rendered form (handling defaults)
-    const initialData = readFormData(rootNode);
-    formStore.reset(initialData);
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
 
     // Subscribe to store changes
-    formStore.subscribe((data) => {
+    store.subscribe((data) => {
       if (onDataChange) {
         onDataChange(data);
       }
@@ -51,7 +60,7 @@ export async function init(containerId: string, schemaOrUrl: string | any, onDat
 
     return {
       rootNode,
-      getData: () => formStore.get()
+      getData: () => store.get()
     };
     
   } catch (error) {

@@ -121,6 +121,3 @@ export class Store<T> {
     }
   }
 }
-
-// Global store instance for the form data
-export const formStore = new Store<Record<string, any>>({});

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { parseSchema } from '../src/parser';
-import { renderNode } from '../src/renderer';
+import { renderNode, RenderContext } from '../src/renderer';
+import { Store } from '../src/state';
+import { CONFIG } from '../src/config';
 import { JSONSchema } from 'json-schema-to-ts';
 
 describe('Format Support', () => {
@@ -18,6 +20,16 @@ describe('Format Support', () => {
     };
 
     const rootNode = await parseSchema(schema as JSONSchema);
+    const store = new Store({});
+    const context: RenderContext = {
+      store,
+      config: CONFIG,
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+      customRenderers: {},
+      rootNode
+    };
     
     // Helper to extract type attribute from HTML string
     const getType = (html: string) => {
@@ -25,22 +37,22 @@ describe('Format Support', () => {
       return match ? match[1] : null;
     };
 
-    const emailHtml = renderNode(rootNode.properties!['emailField'], 'root.emailField') as string;
+    const emailHtml = renderNode(context, rootNode.properties!['emailField'], 'root.emailField') as string;
     expect(getType(emailHtml)).toBe('email');
 
-    const uriHtml = renderNode(rootNode.properties!['uriField'], 'root.uriField') as string;
+    const uriHtml = renderNode(context, rootNode.properties!['uriField'], 'root.uriField') as string;
     expect(getType(uriHtml)).toBe('url');
 
-    const dateHtml = renderNode(rootNode.properties!['dateField'], 'root.dateField') as string;
+    const dateHtml = renderNode(context, rootNode.properties!['dateField'], 'root.dateField') as string;
     expect(getType(dateHtml)).toBe('date');
 
-    const timeHtml = renderNode(rootNode.properties!['timeField'], 'root.timeField') as string;
+    const timeHtml = renderNode(context, rootNode.properties!['timeField'], 'root.timeField') as string;
     expect(getType(timeHtml)).toBe('time');
 
-    const dateTimeHtml = renderNode(rootNode.properties!['dateTimeField'], 'root.dateTimeField') as string;
+    const dateTimeHtml = renderNode(context, rootNode.properties!['dateTimeField'], 'root.dateTimeField') as string;
     expect(getType(dateTimeHtml)).toBe('datetime-local');
 
-    const defaultHtml = renderNode(rootNode.properties!['defaultField'], 'root.defaultField') as string;
+    const defaultHtml = renderNode(context, rootNode.properties!['defaultField'], 'root.defaultField') as string;
     expect(getType(defaultHtml)).toBe('text');
   });
 });

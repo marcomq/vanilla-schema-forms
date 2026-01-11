@@ -1,18 +1,22 @@
 import { FormNode } from "./parser";
 import * as templates from "./templates";
-import { CONFIG } from "./config";
-import { formStore } from "./state";
-import { readFormData } from "./form-data-reader";
+import { Store } from "./state";
+import { generateDefaultData } from "./form-data-reader";
 import { validateData } from "./validator";
 import { ErrorObject } from "ajv";
 
-// Registry to store nodes for dynamic rendering (Arrays, OneOf)
-const NODE_REGISTRY = new Map<string, FormNode>();
-const DATA_PATH_REGISTRY = new Map<string, string>(); // DataPath -> ElementID
-const ELEMENT_ID_TO_DATA_PATH = new Map<string, string>(); // ElementID -> DataPath
+export interface RenderContext {
+  store: Store<any>;
+  config: any;
+  nodeRegistry: Map<string, FormNode>;
+  dataPathRegistry: Map<string, string>;
+  elementIdToDataPath: Map<string, string>;
+  customRenderers: Record<string, CustomRenderer<any>>;
+  rootNode: FormNode;
+}
 
 export interface CustomRenderer<T = any> {
-  render?: (node: FormNode, path: string, elementId: string, dataPath: string) => T;
+  render?: (node: FormNode, path: string, elementId: string, dataPath: string, context: RenderContext) => T;
   widget?: string;
   options?: string[];
   getDefaultKey?: (index: number) => string;
@@ -20,15 +24,18 @@ export interface CustomRenderer<T = any> {
 }
 
 // Configuration for specific fields
-let customRenderers: Record<string, CustomRenderer<any>> = {
+const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
   "mode": {
     widget: "select",
     options: ["consumer", "subscriber"]
   }
 };
 
-export function setCustomRenderers<T>(renderers: Record<string, CustomRenderer<T>>) {
-  customRenderers = { ...customRenderers, ...renderers };
+// Global reference to the current rendering context to support legacy calls
+let activeContext: RenderContext | null = null;
+
+function isRenderContext(obj: any): obj is RenderContext {
+  return obj && typeof obj === 'object' && 'store' in obj && 'config' in obj;
 }
 
 /**
@@ -36,36 +43,64 @@ export function setCustomRenderers<T>(renderers: Record<string, CustomRenderer<T
  * @param rootNode - The root FormNode of the schema.
  * @param formContainer - The HTML element to render the form into.
  */
-let ROOT_NODE: FormNode | null = null;
+export function renderForm(rootNode: FormNode, formContainer: HTMLElement, store: Store<any>, config: any, customRenderers: Record<string, CustomRenderer<any>> = {}) {
+  const context: RenderContext = {
+    store,
+    config,
+    nodeRegistry: new Map(),
+    dataPathRegistry: new Map(),
+    elementIdToDataPath: new Map(),
+    customRenderers: { ...DEFAULT_CUSTOM_RENDERERS, ...customRenderers },
+    rootNode
+  };
 
-export function renderForm(rootNode: FormNode, formContainer: HTMLElement) {
-  ROOT_NODE = rootNode;
-  NODE_REGISTRY.clear();
-  DATA_PATH_REGISTRY.clear();
-  ELEMENT_ID_TO_DATA_PATH.clear();
-  const html = renderNode(rootNode, "", false, "") as unknown as string;
+  const html = renderNode(context, rootNode, "", false, "") as unknown as string;
   formContainer.innerHTML = templates.renderFormWrapper(html);
-  attachInteractivity(formContainer);
+  attachInteractivity(context, formContainer);
 }
 
-function findCustomRenderer<T>(elementId: string): CustomRenderer<T> | undefined {
+function findCustomRenderer<T>(context: RenderContext, elementId: string): CustomRenderer<T> | undefined {
   const fullPathKey = elementId.toLowerCase();
   let maxMatchLen = -1;
   let bestMatch: CustomRenderer<T> | undefined;
 
-  for (const key in customRenderers) {
+  for (const key in context.customRenderers) {
     const lowerKey = key.toLowerCase();
     if (fullPathKey === lowerKey || fullPathKey.endsWith('.' + lowerKey)) {
       if (lowerKey.length > maxMatchLen) {
-        maxMatchLen = lowerKey.length;
-        bestMatch = customRenderers[key];
+        bestMatch = context.customRenderers[key];
       }
     }
   }
   return bestMatch;
 }
 
-export function renderNode<T = any>(node: FormNode, path: string = "", headless: boolean = false, dataPath: string = ""): T {
+export function renderNode<T = any>(contextOrNode: RenderContext | FormNode, nodeOrPath: FormNode | string, pathOrHeadless: string | boolean = "", headlessOrDataPath: boolean | string = false, dataPath: string = ""): T {
+  let context: RenderContext;
+  let node: FormNode;
+  let path: string;
+  let headless: boolean;
+  let dPath: string;
+
+  if (isRenderContext(contextOrNode)) {
+    context = contextOrNode;
+    node = nodeOrPath as FormNode;
+    path = pathOrHeadless as string;
+    headless = headlessOrDataPath as boolean;
+    dPath = dataPath;
+  } else {
+    if (!activeContext) throw new Error("RenderContext missing in renderNode and no active context found.");
+    context = activeContext;
+    node = contextOrNode as FormNode;
+    path = nodeOrPath as string;
+    headless = pathOrHeadless as boolean;
+    dPath = headlessOrDataPath as string;
+  }
+
+  const prevContext = activeContext;
+  activeContext = context;
+
+  try {
   let segment = node.key;
   if (!segment) {
     // If no key (e.g. root or oneOf variant), use a prefixed title to avoid collision
@@ -76,24 +111,24 @@ export function renderNode<T = any>(node: FormNode, path: string = "", headless:
 
   const elementId = path ? `${path}.${segment}` : segment;
 
-  if (CONFIG.visibility.customVisibility && !CONFIG.visibility.customVisibility(node, elementId)) {
+  if (context.config.visibility.customVisibility && !context.config.visibility.customVisibility(node, elementId)) {
     return templates.renderFragment([]) as T;
   }
 
-  if (CONFIG.visibility.hiddenPaths.includes(elementId) || CONFIG.visibility.hiddenKeys.includes(node.title)) {
+  if (context.config.visibility.hiddenPaths.includes(elementId) || context.config.visibility.hiddenKeys.includes(node.title)) {
     return templates.renderFragment([]) as T;
   }
   
   // Register node for potential lookups
-  NODE_REGISTRY.set(elementId, node);
-  DATA_PATH_REGISTRY.set(dataPath, elementId);
-  ELEMENT_ID_TO_DATA_PATH.set(elementId, dataPath);
+  context.nodeRegistry.set(elementId, node);
+  context.dataPathRegistry.set(dataPath, elementId);
+  context.elementIdToDataPath.set(elementId, dataPath);
 
   // 1. Custom Renderers
-  const renderer = findCustomRenderer<T>(elementId);
+  const renderer = findCustomRenderer<T>(context, elementId);
 
   if (renderer?.render) {
-    return renderer.render(node, path, elementId, dataPath);
+    return renderer.render(node, path, elementId, dataPath, context);
   }
 
   // 2. Widget Overrides
@@ -111,15 +146,40 @@ export function renderNode<T = any>(node: FormNode, path: string = "", headless:
     case "number":
     case "integer": return templates.renderNumber(node, elementId) as T;
     case "boolean": return templates.renderBoolean(node, elementId) as T;
-    case "object": return renderObject(node, path, elementId, headless, dataPath) as T;
+    case "object": return renderObject(context, node, path, elementId, headless, dataPath) as T;
     case "array": return templates.renderArray(node, elementId) as T;
     case "null": return templates.renderNull(node) as T;
     default: return templates.renderUnsupported(node) as T;
   }
+  } finally {
+    activeContext = prevContext;
+  }
 }
 
-export function renderObject<T = any>(node: FormNode, _path: string, elementId: string, headless: boolean = false, dataPath: string): T {
-  const props = node.properties ? renderProperties<T>(node.properties, elementId, dataPath) : templates.renderFragment([]);
+export function renderObject<T = any>(contextOrNode: RenderContext | FormNode, nodeOrPath: FormNode | string, pathOrId: string, idOrHeadless: string | boolean, headlessOrDataPath: boolean | string = false, dataPath: string = ""): T {
+  let context: RenderContext;
+  let node: FormNode;
+  let elementId: string;
+  let headless: boolean;
+  let dPath: string;
+
+  if (isRenderContext(contextOrNode)) {
+    context = contextOrNode;
+    node = nodeOrPath as FormNode;
+    // _path is ignored in implementation but present in signature
+    elementId = idOrHeadless as string;
+    headless = headlessOrDataPath as boolean;
+    dPath = dataPath;
+  } else {
+    if (!activeContext) throw new Error("RenderContext missing in renderObject");
+    context = activeContext;
+    node = contextOrNode as FormNode;
+    elementId = pathOrId;
+    headless = idOrHeadless as boolean;
+    dPath = headlessOrDataPath as string;
+  }
+
+  const props = node.properties ? renderProperties<T>(context, node.properties, elementId, dataPath) : templates.renderFragment([]);
   const ap = templates.renderAdditionalProperties(node, elementId);
   const oneOf = templates.renderOneOf(node, elementId);
   
@@ -131,14 +191,32 @@ export function renderObject<T = any>(node: FormNode, _path: string, elementId: 
   return templates.renderObject(node, elementId, content) as T;
 }
 
-export function renderProperties<T = any>(properties: { [key: string]: FormNode }, parentId: string, parentDataPath: string): T {
-  const groups = CONFIG.layout.groups[parentId] || [];
+export function renderProperties<T = any>(contextOrProps: RenderContext | { [key: string]: FormNode }, propsOrId: { [key: string]: FormNode } | string, idOrPath: string, path?: string): T {
+  let context: RenderContext;
+  let properties: { [key: string]: FormNode };
+  let parentId: string;
+  let parentDataPath: string;
+
+  if (isRenderContext(contextOrProps)) {
+    context = contextOrProps;
+    properties = propsOrId as { [key: string]: FormNode };
+    parentId = idOrPath;
+    parentDataPath = path || "";
+  } else {
+    if (!activeContext) throw new Error("RenderContext missing in renderProperties");
+    context = activeContext;
+    properties = contextOrProps as { [key: string]: FormNode };
+    parentId = propsOrId as string;
+    parentDataPath = idOrPath;
+  }
+
+  const groups = context.config.layout.groups[parentId] || [];
   const groupedKeys = new Set(groups.flatMap((g: { keys: string[]; title?: string; className?: string; }) => g.keys));
  
   // Render groups
   const groupsHtml = templates.renderFragment(groups.map((group: { keys: string[]; title?: string; className?: string; }) => {
     const groupContent = templates.renderFragment(group.keys
-      .map(key => properties[key] ? renderNode(properties[key], parentId, false, `${parentDataPath}/${key}`) : templates.renderFragment([]))
+      .map(key => properties[key] ? renderNode(context, properties[key], parentId, false, `${parentDataPath}/${key}`) : templates.renderFragment([]))
     );
     return templates.renderLayoutGroup(group.title, groupContent, group.className);
   }));
@@ -151,7 +229,7 @@ export function renderProperties<T = any>(properties: { [key: string]: FormNode 
     const nodeB = properties[b];
     
     // 1. Priority fields (e.g. name, id, enabled)
-    const priority = CONFIG.sorting.perObjectPriority[parentId] || CONFIG.sorting.defaultPriority;
+    const priority = context.config.sorting.perObjectPriority[parentId] || context.config.sorting.defaultPriority;
     const idxA = priority.indexOf(a.toLowerCase());
     const idxB = priority.indexOf(b.toLowerCase());
     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -170,7 +248,7 @@ export function renderProperties<T = any>(properties: { [key: string]: FormNode 
   });
 
   const remainingHtml = templates.renderFragment(keys
-    .map(key => renderNode(properties[key], parentId, false, `${parentDataPath}/${key}`))
+    .map(key => renderNode(context, properties[key], parentId, false, `${parentDataPath}/${key}`))
   );
 
   return templates.renderFragment([groupsHtml, remainingHtml]) as T;
@@ -272,58 +350,6 @@ function updateAPIndices(container: HTMLElement, startIndex: number, baseId: str
   }
 }
 
-function getDefaultValueForNode(node: FormNode): any {
-  if (node.defaultValue !== undefined) return node.defaultValue;
-
-  let defaults: any = (node.type === 'object' || node.properties) ? {} : undefined;
-
-  // 1. Populate required properties
-  if (node.properties) {
-    for (const key in node.properties) {
-      if (node.properties[key].required) {
-        defaults[key] = getDefaultValueForNode(node.properties[key]);
-      }
-    }
-  }
-
-  // 2. Handle oneOf defaults (merge if object, replace if primitive)
-  if (node.oneOf && node.oneOf.length > 0) {
-    // Match logic in renderOneOf to find default selection
-    let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
-    if (selectedIndex === -1) {
-      selectedIndex = node.oneOf.findIndex(opt => {
-        const title = opt.title ? opt.title.toLowerCase() : "";
-        return title === 'null' || title === 'none';
-      });
-    }
-    if (selectedIndex === -1) selectedIndex = 0;
-
-    const oneOfDefault = getDefaultValueForNode(node.oneOf[selectedIndex]);
-    
-    if (defaults !== undefined && typeof oneOfDefault === 'object' && oneOfDefault !== null) {
-      defaults = { ...defaults, ...oneOfDefault };
-    } else if (defaults === undefined) {
-      defaults = oneOfDefault;
-    }
-  }
-  
-  if (defaults !== undefined) return defaults;
-
-  if (node.enum && node.enum.length > 0) {
-    return node.enum[0];
-  }
-
-  switch (node.type) {
-    case 'string': return "";
-    case 'number': 
-    case 'integer': return 0;
-    case 'boolean': return false;
-    case 'array': return [];
-    case 'null': return null;
-    default: return "";
-  }
-}
-
 export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   if (data === undefined) return node;
   
@@ -349,9 +375,9 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   return newNode;
 }
 
-function validateAndShowErrors() {
-  if (!ROOT_NODE) return;
-  const data = readFormData(ROOT_NODE);
+function validateAndShowErrors(context: RenderContext) {
+  if (!context.rootNode) return;
+  const data = context.store.get();
   const errors = validateData(data);
   
   // Clear existing errors
@@ -360,7 +386,7 @@ function validateAndShowErrors() {
 
   if (errors) {
     errors.forEach(err => {
-      const elementId = DATA_PATH_REGISTRY.get(err.instancePath);
+      const elementId = context.dataPathRegistry.get(err.instancePath);
       if (elementId) {
         const el = document.getElementById(elementId);
         if (el) {
@@ -375,7 +401,7 @@ function validateAndShowErrors() {
   }
 }
 
-function attachInteractivity(container: HTMLElement) {
+function attachInteractivity(context: RenderContext, container: HTMLElement) {
   // 1. Visibility Toggles (TLS)
   container.addEventListener('change', (e) => {
     const target = e.target as HTMLElement;
@@ -415,12 +441,12 @@ function attachInteractivity(container: HTMLElement) {
           const path = resolvePath(parentId + ".dummy"); // Resolve parent path
           if (path) {
             path.pop(); // Remove 'dummy'
-            const parentObj = formStore.getPath(path);
+            const parentObj = context.store.getPath(path);
             if (parentObj && typeof parentObj === 'object') {
               const val = parentObj[oldKey!] || {}; // Default to empty object if new
               if (oldKey) delete parentObj[oldKey];
               if (newKey) parentObj[newKey] = val;
-              formStore.setPath(path, parentObj);
+              context.store.setPath(path, parentObj);
               target.setAttribute('data-original-key', newKey);
             }
           }
@@ -437,10 +463,10 @@ function attachInteractivity(container: HTMLElement) {
       } else if (target.type === 'number') {
         value = (target as HTMLInputElement).valueAsNumber;
       }
-      formStore.setPath(path, value);
+      context.store.setPath(path, value);
     }
     
-    validateAndShowErrors();
+    validateAndShowErrors(context);
   });
   
   // Initialize toggles
@@ -451,7 +477,7 @@ function attachInteractivity(container: HTMLElement) {
     const target = e.target as HTMLSelectElement;
     if (target.classList.contains('js_oneof-selector')) {
       const elementId = target.getAttribute('data-id');
-      const node = NODE_REGISTRY.get(elementId!);
+      const node = context.nodeRegistry.get(elementId!);
       const contentContainer = document.getElementById(`${elementId}__oneof_content`);
       
       if (node && node.oneOf && contentContainer) {
@@ -461,7 +487,7 @@ function attachInteractivity(container: HTMLElement) {
         // Preserve Data Logic
         const storePath = resolvePath(elementId!);
         if (storePath) {
-          const currentData = formStore.getPath(storePath);
+          const currentData = context.store.getPath(storePath);
            if (currentData) {
              selectedNode = hydrateNodeWithData(selectedNode, currentData);
            }
@@ -469,16 +495,34 @@ function attachInteractivity(container: HTMLElement) {
 
         // Use the current elementId as the base path for the child option to ensure correct nesting
         const path = elementId!;
-        const parentDataPath = ELEMENT_ID_TO_DATA_PATH.get(elementId!) || "";
-        contentContainer.innerHTML = renderNode(selectedNode, path, true, parentDataPath) as unknown as string;
+        const parentDataPath = context.elementIdToDataPath.get(elementId!) || "";
+        contentContainer.innerHTML = renderNode(context, selectedNode, path, true, parentDataPath) as unknown as string;
 
         // Update Store with new structure (merging common props + new oneOf defaults)
         if (storePath) {
-          const parentPath = elementId!.substring(0, elementId!.lastIndexOf('.'));
-          const newData = readFormData(node, parentPath);
-          formStore.setPath(storePath, newData);
+          const currentData = context.store.getPath(storePath) || {};
+          const newData: any = {};
+          
+          // 1. Preserve Common Properties
+          if (node.properties) {
+            for (const key in node.properties) {
+              if (currentData[key] !== undefined) {
+                newData[key] = currentData[key];
+              }
+            }
+          }
+          
+          // 2. Merge New Option Defaults (hydrated with current data to preserve overlaps)
+          const hydratedOption = hydrateNodeWithData(selectedNode, currentData);
+          const optionData = generateDefaultData(hydratedOption);
+          
+          if (typeof optionData === 'object' && optionData !== null) {
+             Object.assign(newData, optionData);
+          }
+          
+          context.store.setPath(storePath, newData);
         }
-        validateAndShowErrors();
+        validateAndShowErrors(context);
       }
     }
   });
@@ -492,16 +536,16 @@ function attachInteractivity(container: HTMLElement) {
     if (target.classList.contains('js_btn-add-array-item')) {
       const elementId = target.getAttribute('data-id');
       const targetContainerId = target.getAttribute('data-target');
-      const node = NODE_REGISTRY.get(elementId!);
+      const node = context.nodeRegistry.get(elementId!);
       
       if (node && node.items) {
         const container = document.getElementById(targetContainerId!);
         const index = container!.children.length;
         const itemTitle = `Item ${index + 1}`;
         const itemNode = { ...node.items, title: itemTitle };
-        const parentDataPath = ELEMENT_ID_TO_DATA_PATH.get(elementId!) || "";
+        const parentDataPath = context.elementIdToDataPath.get(elementId!) || "";
         const itemDataPath = `${parentDataPath}/${index}`;
-        const innerHtml = renderNode(itemNode, `${elementId}.${index}`, false, itemDataPath) as unknown as string;
+        const innerHtml = renderNode(context, itemNode, `${elementId}.${index}`, false, itemDataPath) as unknown as string;
         const itemHtml = templates.renderArrayItem(innerHtml);
         container!.insertAdjacentHTML('beforeend', itemHtml);
 
@@ -519,9 +563,9 @@ function attachInteractivity(container: HTMLElement) {
         const path = resolvePath(elementId!) || [];
         // The new item is at the index we just calculated
         const itemPath = [...path, index];
-        const defaultValue = getDefaultValueForNode(node.items);
-        formStore.setPath(itemPath, defaultValue);
-        validateAndShowErrors();
+        const defaultValue = generateDefaultData(node.items);
+        context.store.setPath(itemPath, defaultValue);
+        validateAndShowErrors(context);
       }
     }
     
@@ -542,18 +586,18 @@ function attachInteractivity(container: HTMLElement) {
         
         // Update Store: Remove item at index
         const path = resolvePath(baseId) || [];
-        formStore.removePath(path);
+        context.store.removePath(path);
 
         if (baseId) updateArrayIndices(arrayContainer as HTMLElement, index, baseId);
         container.dispatchEvent(new Event('change', { bubbles: true }));
-        validateAndShowErrors();
+        validateAndShowErrors(context);
       }
     }
 
     // 5. Additional Properties Add
     if (target.classList.contains('js_btn-add-ap')) {
       const elementId = target.getAttribute('data-id');
-      const node = NODE_REGISTRY.get(elementId!);
+      const node = context.nodeRegistry.get(elementId!);
       const container = target.parentElement?.querySelector('.js_ap-items');
       
       if (node && container) {
@@ -562,10 +606,10 @@ function attachInteractivity(container: HTMLElement) {
         const valueNode = { ...valueSchema, title: 'Value', key: 'Value' };
         // APs are tricky for data path mapping because key is dynamic. 
         // We use a placeholder or skip validation mapping for now.
-        const valueHtml = renderNode(valueNode, `${elementId}.__ap_${index}`, false, `${ELEMENT_ID_TO_DATA_PATH.get(elementId!) || ""}/__ap_${index}`) as unknown as string;
+        const valueHtml = renderNode(context, valueNode, `${elementId}.__ap_${index}`, false, `${context.elementIdToDataPath.get(elementId!) || ""}/__ap_${index}`) as unknown as string;
         
         let defaultKey = "";
-        const renderer = findCustomRenderer(elementId || "");
+        const renderer = findCustomRenderer(context, elementId || "");
         
         if (renderer?.getDefaultKey) {
           defaultKey = renderer.getDefaultKey(index);
@@ -596,7 +640,7 @@ function attachInteractivity(container: HTMLElement) {
         // However, if we have a defaultKey, we can set it.
         if (defaultKey) {
            const path = resolvePath(elementId!) || [];
-           formStore.setPath([...path, defaultKey], getDefaultValueForNode(valueSchema));
+          context.store.setPath([...path, defaultKey], generateDefaultData(valueSchema));
         }
         
         container.dispatchEvent(new Event('change', { bubbles: true }));
@@ -616,7 +660,7 @@ function attachInteractivity(container: HTMLElement) {
       if (keyInput && keyInput.value) {
         if (elementId) {
            const path = resolvePath(elementId) || [];
-           formStore.removePath([...path, keyInput.value]);
+           context.store.removePath([...path, keyInput.value]);
         }
       }
       
