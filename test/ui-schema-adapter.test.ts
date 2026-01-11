@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { adaptUiSchema, UISchemaElement } from './ui-schema-adapter';
-import { CONFIG, DEFAULT_CONFIG } from './config';
+import { adaptUiSchema, UISchemaElement } from '../src/ui-schema-adapter';
+import { CONFIG, DEFAULT_CONFIG } from '../src/config';
 
 describe('ui-schema-adapter', () => {
   beforeEach(() => {

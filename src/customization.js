@@ -1,4 +1,4 @@
-import { CustomRenderer, renderObject, renderProperties } from "./renderer";
+import { renderObject, renderProperties } from "./renderer";
 import * as templates from "./templates";
 import { setI18n } from "./i18n";
 import { setConfig } from "./config";
@@ -27,7 +27,7 @@ setConfig({
   }
 });
 
-export const tlsRenderer: CustomRenderer = {
+export const tlsRenderer = {
   render: (node, path, elementId) => {
     const requiredProp = node.properties?.["required"];
     
@@ -54,7 +54,7 @@ export const tlsRenderer: CustomRenderer = {
   }
 };
 
-export const routesRenderer: CustomRenderer = {
+export const routesRenderer = {
   render: (node, _path, elementId) => {
     const props = node.properties ? renderProperties(node.properties, elementId) : '';
     // Hide title (null). Key generation is handled by getDefaultKey below.
@@ -80,7 +80,7 @@ export const routesRenderer: CustomRenderer = {
   }
 };
 
-export const CUSTOM_RENDERERS: Record<string, CustomRenderer> = {
+export const CUSTOM_RENDERERS = {
   "tls": tlsRenderer,
   "routes": routesRenderer,
   "output.mode": { render: () => "" },

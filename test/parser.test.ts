@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { transformSchemaToFormNode } from './parser';
+import { transformSchemaToFormNode } from '../src/parser';
 
 describe('transformSchemaToFormNode', () => {
   it('should transform a simple string schema', () => {

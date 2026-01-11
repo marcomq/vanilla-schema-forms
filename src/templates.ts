@@ -54,7 +54,10 @@ const defaultTemplates: any = {
   },
 
   renderSelect: (node: FormNode, elementId: string, options: string[] = []): string => {
-    const opts = options.map(o => `<option value="${o}">${o}</option>`).join('');
+    const opts = options.map(o => {
+      const selected = String(node.defaultValue) === o ? 'selected' : '';
+      return `<option value="${o}" ${selected}>${o}</option>`;
+    }).join('');
     const required = node.required ? 'required' : '';
 
     const selectHtml = `<select class="form-select" id="${elementId}" ${required}>${opts}</select>`;

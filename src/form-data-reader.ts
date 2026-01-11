@@ -1,7 +1,14 @@
 import { FormNode } from "./parser";
 
 export function readFormData(node: FormNode, path: string = ""): any {
-  const elementId = path ? `${path}.${node.title}` : node.title;
+  let segment = node.key;
+  if (!segment) {
+    // Match logic in renderer.ts
+    const safeTitle = node.title.replace(/[^a-zA-Z0-9]/g, '');
+    segment = path ? `__var_${safeTitle}` : safeTitle;
+  }
+
+  const elementId = path ? `${path}.${segment}` : segment;
 
   switch (node.type) {
     case "object":
@@ -31,8 +38,8 @@ export function readFormData(node: FormNode, path: string = ""): any {
                 ? { type: 'string', title: 'Value' } as FormNode 
                 : node.additionalProperties;
               
-              // Force title to 'Value' to match renderer
-              const valueNode = { ...valueSchema as FormNode, title: 'Value' };
+              // Force title/key to 'Value' to match renderer
+              const valueNode = { ...valueSchema as FormNode, title: 'Value', key: 'Value' };
               obj[key] = readFormData(valueNode, valueIdPath);
             }
           });
@@ -44,9 +51,11 @@ export function readFormData(node: FormNode, path: string = ""): any {
         const selector = document.getElementById(`${elementId}__selector`) as HTMLSelectElement | null;
         if (selector) {
           const index = parseInt(selector.value, 10);
-          const selectedNode = node.oneOf[index];
-          const oneOfData = readFormData(selectedNode, path); // Use parent path
-          Object.assign(obj, oneOfData);
+          if (!isNaN(index) && node.oneOf[index]) {
+            const selectedNode = node.oneOf[index];
+            const oneOfData = readFormData(selectedNode, elementId); // Use current node ID as path
+            Object.assign(obj, oneOfData);
+          }
         }
       }
       
@@ -72,15 +81,19 @@ export function readFormData(node: FormNode, path: string = ""): any {
     case "number":
     case "integer":
       const numElement = document.getElementById(elementId) as HTMLInputElement | null;
-      return numElement ? numElement.valueAsNumber : 0;
+      return numElement ? (isNaN(numElement.valueAsNumber) ? undefined : numElement.valueAsNumber) : undefined;
 
     case "boolean":
       const boolElement = document.getElementById(elementId) as HTMLInputElement | null;
-      return boolElement ? boolElement.checked : false;
+      return boolElement ? boolElement.checked : undefined;
+
+    case "null":
+      return null;
 
     case "string":
     default:
       const strElement = document.getElementById(elementId) as HTMLInputElement | HTMLSelectElement | null;
-      return strElement ? strElement.value : "";
+      if (!strElement) return undefined;
+      return strElement.value === "" ? undefined : strElement.value;
   }
 }

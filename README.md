@@ -15,6 +15,16 @@ This project is a web-based application that dynamically generates HTML forms fr
 
 This project is in a very early pre-alpha state. I am not using it yet and it may not be working correctly for you.
 
+## Roadmap
+
+We are actively working on maturing the architecture. Key goals include:
+
+1.  **State Management**: Moving away from DOM-scraping to a reactive data store.
+2.  **Validation**: Integrating AJV for robust schema validation.
+3.  **Renderer Abstraction**: Decoupling logic from HTML string generation to support other frameworks.
+
+See [ROADMAP.json](./ROADMAP.json) for a machine-parseable list of tasks and associated files.
+
 ## How it Works
 
 The application follows a clear pipeline to transform a JSON Schema into an interactive form:

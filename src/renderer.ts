@@ -1,6 +1,8 @@
 import { FormNode } from "./parser";
 import * as templates from "./templates";
 import { CONFIG } from "./config";
+import { formStore } from "./state";
+import { readFormData } from "./form-data-reader";
 
 // Registry to store nodes for dynamic rendering (Arrays, OneOf)
 const NODE_REGISTRY = new Map<string, FormNode>();
@@ -15,7 +17,7 @@ export interface CustomRenderer {
 
 // Configuration for specific fields
 let customRenderers: Record<string, CustomRenderer> = {
-  "consumer mode": {
+  "mode": {
     widget: "select",
     options: ["consumer", "subscriber"]
   }
@@ -55,7 +57,15 @@ function findCustomRenderer(elementId: string): CustomRenderer | undefined {
 }
 
 export function renderNode(node: FormNode, path: string = "", headless: boolean = false): string {
-  const elementId = path ? `${path}.${node.title}` : node.title;
+  let segment = node.key;
+  if (!segment) {
+    // If no key (e.g. root or oneOf variant), use a prefixed title to avoid collision
+    // and allow resolvePath to skip it.
+    const safeTitle = node.title.replace(/[^a-zA-Z0-9]/g, '');
+    segment = path ? `__var_${safeTitle}` : safeTitle;
+  }
+
+  const elementId = path ? `${path}.${segment}` : segment;
 
   if (CONFIG.visibility.customVisibility && !CONFIG.visibility.customVisibility(node, elementId)) {
     return "";
@@ -152,6 +162,154 @@ export function renderProperties(properties: { [key: string]: FormNode }, parent
   return groupsHtml + remainingHtml;
 }
 
+function resolvePath(elementId: string): (string | number)[] | null {
+  const fullParts = elementId.split('.');
+  if (fullParts.length === 0) return [];
+  
+  // The first part is the Root title, which we don't include in the data path.
+  const path: (string | number)[] = [];
+  let currentIdParts = [fullParts[0]]; // Start with Root
+  
+  for (let i = 1; i < fullParts.length; i++) {
+    const part = fullParts[i];
+    currentIdParts.push(part);
+
+    // Skip variant segments (oneOf options) to flatten the data structure
+    if (part.startsWith('__var_')) continue;
+    
+    if (part.startsWith('__ap_')) {
+      const keyInputId = `${currentIdParts.join('.')}_key`;
+      const keyInput = document.getElementById(keyInputId) as HTMLInputElement;
+      
+      if (keyInput) {
+        const key = keyInput.value;
+        if (!key) return null; // Cannot store value without a key
+        path.push(key);
+      } else {
+        return null;
+      }
+      
+      // Skip 'Value' if next
+      if (i + 1 < fullParts.length && fullParts[i+1] === 'Value') {
+        i++;
+        currentIdParts.push('Value');
+      }
+    } else {
+      const num = parseInt(part, 10);
+      path.push(isNaN(num) ? part : num);
+    }
+  }
+  return path;
+}
+
+function updateArrayIndices(container: HTMLElement, startIndex: number, baseId: string) {
+  const rows = Array.from(container.children) as HTMLElement[];
+  for (let i = startIndex; i < rows.length; i++) {
+    const row = rows[i];
+    const oldIndex = i + 1;
+    const newIndex = i;
+    const oldPrefix = `${baseId}.${oldIndex}`;
+    const newPrefix = `${baseId}.${newIndex}`;
+
+    // Update IDs and attributes for the row and all its children
+    const elements = [row, ...row.querySelectorAll('*')];
+    elements.forEach(el => {
+      if (el.id && el.id.startsWith(oldPrefix)) {
+        el.id = el.id.replace(oldPrefix, newPrefix);
+      }
+      ['name', 'for', 'data-target', 'data-id', 'data-toggle-target'].forEach(attr => {
+        if (el.hasAttribute(attr)) {
+          const val = el.getAttribute(attr)!;
+          if (val.startsWith(oldPrefix)) {
+            el.setAttribute(attr, val.replace(oldPrefix, newPrefix));
+          }
+        }
+      });
+    });
+  }
+}
+
+function updateAPIndices(container: HTMLElement, startIndex: number, baseId: string) {
+  const rows = Array.from(container.children) as HTMLElement[];
+  for (let i = startIndex; i < rows.length; i++) {
+    const row = rows[i];
+    const keyInput = row.querySelector('.js_ap-key');
+    if (keyInput && keyInput.id) {
+       const match = keyInput.id.match(/__ap_(\d+)_key$/);
+       if (match) {
+         const oldIdx = parseInt(match[1], 10);
+         const newIdx = i;
+         if (oldIdx !== newIdx) {
+           const oldPrefix = `${baseId}.__ap_${oldIdx}`;
+           const newPrefix = `${baseId}.__ap_${newIdx}`;
+           
+           const elements = [row, ...row.querySelectorAll('*')];
+           elements.forEach(el => {
+             if (el.id && el.id.startsWith(oldPrefix)) el.id = el.id.replace(oldPrefix, newPrefix);
+             ['name', 'for', 'data-target', 'data-id', 'data-toggle-target'].forEach(attr => {
+                if (el.hasAttribute(attr) && el.getAttribute(attr)!.startsWith(oldPrefix)) {
+                  el.setAttribute(attr, el.getAttribute(attr)!.replace(oldPrefix, newPrefix));
+                }
+             });
+           });
+         }
+       }
+    }
+  }
+}
+
+function getDefaultValueForNode(node: FormNode): any {
+  if (node.default !== undefined) return node.default;
+
+  let defaults: any = (node.type === 'object' || node.properties) ? {} : undefined;
+
+  // 1. Populate required properties
+  if (node.properties) {
+    for (const key in node.properties) {
+      if (node.properties[key].required) {
+        defaults[key] = getDefaultValueForNode(node.properties[key]);
+      }
+    }
+  }
+
+  // 2. Handle oneOf defaults (merge if object, replace if primitive)
+  if (node.oneOf && node.oneOf.length > 0) {
+    // Match logic in renderOneOf to find default selection
+    let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
+    if (selectedIndex === -1) {
+      selectedIndex = node.oneOf.findIndex(opt => {
+        const title = opt.title ? opt.title.toLowerCase() : "";
+        return title === 'null' || title === 'none';
+      });
+    }
+    if (selectedIndex === -1) selectedIndex = 0;
+
+    const oneOfDefault = getDefaultValueForNode(node.oneOf[selectedIndex]);
+    
+    if (defaults !== undefined && typeof oneOfDefault === 'object' && oneOfDefault !== null) {
+      defaults = { ...defaults, ...oneOfDefault };
+    } else if (defaults === undefined) {
+      defaults = oneOfDefault;
+    }
+  }
+  
+  if (defaults !== undefined) return defaults;
+
+  if (node.enum && node.enum.length > 0) {
+    return node.enum[0];
+  }
+
+  switch (node.type) {
+    case 'string': return "";
+    case 'number': 
+    case 'integer': return 0;
+    case 'boolean': return false;
+    case 'array': return [];
+    case 'null': return null;
+    default: return "";
+  }
+}
+
 function attachInteractivity(container: HTMLElement) {
   // 1. Visibility Toggles (TLS)
   container.addEventListener('change', (e) => {
@@ -163,6 +321,58 @@ function attachInteractivity(container: HTMLElement) {
         const isChecked = (target as HTMLInputElement).checked;
         el.style.display = isChecked ? 'block' : 'none';
       }
+    }
+  });
+
+  // Initialize data-original-key for AP keys to track renames
+  container.querySelectorAll('.js_ap-key').forEach(el => {
+    const input = el as HTMLInputElement;
+    input.setAttribute('data-original-key', input.value);
+  });
+
+  // Global Input Listener for Store Updates
+  container.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    if (!target.id) return;
+
+    // Ignore internal selector inputs (handled by change listener for UI, not data)
+    if (target.id.endsWith('__selector')) return;
+
+    // Handle AP Key Rename
+    if (target.classList.contains('js_ap-key')) {
+      const oldKey = target.getAttribute('data-original-key');
+      const newKey = target.value;
+      
+      if (oldKey !== newKey) {
+        const match = target.id.match(/(.*)\.__ap_\d+_key$/);
+        if (match) {
+          const parentId = match[1];
+          const path = resolvePath(parentId + ".dummy"); // Resolve parent path
+          if (path) {
+            path.pop(); // Remove 'dummy'
+            const parentObj = formStore.getPath(path);
+            if (parentObj && typeof parentObj === 'object') {
+              const val = parentObj[oldKey!] || {}; // Default to empty object if new
+              if (oldKey) delete parentObj[oldKey];
+              if (newKey) parentObj[newKey] = val;
+              formStore.setPath(path, parentObj);
+              target.setAttribute('data-original-key', newKey);
+            }
+          }
+        }
+      }
+    } else {
+      // Handle Value Update
+      const path = resolvePath(target.id);
+      if (!path) return;
+
+      let value: any = target.value;
+      if (target.type === 'checkbox') {
+        value = (target as HTMLInputElement).checked;
+      } else if (target.type === 'number') {
+        value = (target as HTMLInputElement).valueAsNumber;
+      }
+      formStore.setPath(path, value);
     }
   });
   
@@ -180,8 +390,17 @@ function attachInteractivity(container: HTMLElement) {
       if (node && node.oneOf && contentContainer) {
         const selectedIdx = parseInt(target.value, 10);
         const selectedNode = node.oneOf[selectedIdx];
-        const path = elementId!.substring(0, elementId!.lastIndexOf('.'));
+        // Use the current elementId as the base path for the child option to ensure correct nesting
+        const path = elementId!;
         contentContainer.innerHTML = renderNode(selectedNode, path, true);
+
+        // Update Store with new structure (merging common props + new oneOf defaults)
+        const storePath = resolvePath(elementId!);
+        if (storePath) {
+          const parentPath = elementId!.substring(0, elementId!.lastIndexOf('.'));
+          const newData = readFormData(node, parentPath);
+          formStore.setPath(storePath, newData);
+        }
       }
     }
   });
@@ -205,14 +424,48 @@ function attachInteractivity(container: HTMLElement) {
         const innerHtml = renderNode(itemNode, `${elementId}.${index}`);
         const itemHtml = templates.renderArrayItem(innerHtml);
         container!.insertAdjacentHTML('beforeend', itemHtml);
+
+          // Initialize OneOfs in the new item
+          const newItem = container!.lastElementChild;
+          if (newItem) {
+            newItem.querySelectorAll('.js_oneof-selector').forEach(el => {
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+          }
+
         container?.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Update Store: Add default value
+        const path = resolvePath(elementId!) || [];
+        // The new item is at the index we just calculated
+        const itemPath = [...path, index];
+        const defaultValue = getDefaultValueForNode(node.items);
+        formStore.setPath(itemPath, defaultValue);
       }
     }
     
     // 4. Array Remove Item
     if (target.classList.contains('js_btn-remove-item')) {
-      target.closest('.js_array-item-row')?.remove();
-      container.dispatchEvent(new Event('change', { bubbles: true }));
+      const row = target.closest('.js_array-item-row');
+      const arrayContainer = row?.parentElement;
+      if (row && arrayContainer) {
+        const index = Array.from(arrayContainer.children).indexOf(row);
+        
+        // Attempt to find the array ID prefix from the row's content
+        // The first child of the row usually contains the rendered node with the ID
+        const contentEl = row.querySelector('[id]');
+        const contentId = contentEl?.id;
+        const baseId = contentId ? contentId.substring(0, contentId.lastIndexOf('.')) : '';
+
+        row.remove();
+        
+        // Update Store: Remove item at index
+        const path = resolvePath(baseId) || [];
+        formStore.removePath(path);
+
+        if (baseId) updateArrayIndices(arrayContainer as HTMLElement, index, baseId);
+        container.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
 
     // 5. Additional Properties Add
@@ -224,7 +477,7 @@ function attachInteractivity(container: HTMLElement) {
       if (node && container) {
         const index = container.children.length;
         const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: 'Value' } as FormNode;
-        const valueNode = { ...valueSchema, title: 'Value' };
+        const valueNode = { ...valueSchema, title: 'Value', key: 'Value' };
         const valueHtml = renderNode(valueNode, `${elementId}.__ap_${index}`);
         
         let defaultKey = "";
@@ -245,12 +498,52 @@ function attachInteractivity(container: HTMLElement) {
           ? renderer.renderAdditionalPropertyRow(valueHtml, defaultKey, uniqueId)
           : templates.renderAdditionalPropertyRow(valueHtml, defaultKey, uniqueId);
         container.insertAdjacentHTML('beforeend', rowHtml);
+
+        // Initialize OneOfs in the new row
+        const newRow = container.lastElementChild;
+        if (newRow) {
+          newRow.querySelectorAll('.js_oneof-selector').forEach(el => {
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
+        
+        // Update Store: Add new property (if key is present, otherwise it waits for input)
+        // For APs, the key is dynamic. We usually wait for the user to type the key.
+        // However, if we have a defaultKey, we can set it.
+        if (defaultKey) {
+           const path = resolvePath(elementId!) || [];
+           formStore.setPath([...path, defaultKey], getDefaultValueForNode(valueSchema));
+        }
+        
         container.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
     
     if (target.classList.contains('js_btn-remove-ap')) {
-      target.closest('.js_ap-row')?.remove();
+      const row = target.closest('.js_ap-row');
+      // Note: Removing APs from store is tricky because we need the Key.
+      // The readFormData logic handles this by rescraping, but for pure reactivity we'd need to know the key.
+      // For now, we rely on the fact that the DOM removal stops it from being read, 
+      // BUT since we are decoupling, we should ideally remove it from store.
+      // Implementation: Find the key input in the row.
+      const keyInput = row?.querySelector('.js_ap-key') as HTMLInputElement;
+      const elementId = target.closest('.js_additional-properties')?.parentElement?.id; // Parent object ID
+
+      if (keyInput && keyInput.value) {
+        if (elementId) {
+           const path = resolvePath(elementId) || [];
+           formStore.removePath([...path, keyInput.value]);
+        }
+      }
+      
+      const apContainer = row?.parentElement;
+      const index = apContainer ? Array.from(apContainer.children).indexOf(row!) : -1;
+
+      row?.remove();
+      
+      if (apContainer && index !== -1 && elementId) {
+        updateAPIndices(apContainer as HTMLElement, index, elementId);
+      }
       container.dispatchEvent(new Event('change', { bubbles: true }));
     }
   });

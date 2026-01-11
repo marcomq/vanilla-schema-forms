@@ -1,0 +1,50 @@
+{
+  "tasks": [
+    {
+      "id": "integrate-ajv",
+      "title": "Integrate Schema Validator (AJV)",
+      "description": "Replace HTML5 validation with AJV to support complex validation logic, 'format' keywords, and better error reporting.",
+      "priority": "High",
+      "status": "Pending",
+      "relevantFiles": [
+        "src/parser.ts",
+        "src/renderer.ts",
+        "package.json"
+      ]
+    },
+    {
+      "id": "abstract-renderer",
+      "title": "Abstract Renderer Interface",
+      "description": "Refactor render functions to return a generic type (T) instead of strings, enabling support for other frameworks like React or Vue.",
+      "priority": "Medium",
+      "status": "Pending",
+      "relevantFiles": [
+        "src/renderer.ts",
+        "src/templates.ts"
+      ]
+    },
+    {
+      "id": "format-support",
+      "title": "Implement 'format' Support",
+      "description": "Add specific widgets for JSON Schema formats like 'date-time', 'email', 'uri', etc.",
+      "priority": "Medium",
+      "status": "Pending",
+      "relevantFiles": [
+        "src/parser.ts",
+        "src/templates.ts",
+        "src/renderer.ts"
+      ]
+    },
+    {
+      "id": "enhance-oneof",
+      "title": "Enhance oneOf/Polymorphism UX",
+      "description": "Improve the UI for switching between types in oneOf/anyOf, preserving data where possible.",
+      "priority": "Low",
+      "status": "Pending",
+      "relevantFiles": [
+        "src/renderer.ts",
+        "src/templates.ts"
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "allowJs": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -24,5 +25,5 @@
   },
   "include": [
     "src"
-  ]
+, "test/parser.test.ts", "test/ui-schema-adapter.test.ts", "test/state.test.ts"  ]
 }

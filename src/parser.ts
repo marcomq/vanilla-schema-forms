@@ -8,6 +8,7 @@ import { CONFIG } from "./config";
  * consumption by the UI renderer.
  */
 export interface FormNode {
+  key?: string;
   type: string; // e.g., 'string', 'number', 'boolean', 'object', 'array'
   title: string;
   description?: string;
@@ -92,16 +93,16 @@ export async function parseSchema(schema: JSONSchema | string): Promise<FormNode
  */
 export function transformSchemaToFormNode(
   schema: JSONSchema,
-  title: string = "",
+  key: string = "",
   depth: number = 0,
   isRequired: boolean = false
 ): FormNode {
   if (depth > 16) {
-    return { type: "string", title: title || "Max Depth Reached", description: "Maximum recursion depth exceeded." };
+    return { type: "string", title: key || "Max Depth Reached", description: "Maximum recursion depth exceeded." };
   }
 
   if (typeof schema === "boolean") {
-    return { type: "boolean", title };
+    return { type: "boolean", title: key };
   }
 
   let schemaObj = schema as Exclude<JSONSchema, boolean>;
@@ -110,7 +111,7 @@ export function transformSchemaToFormNode(
   if (schemaObj.allOf) {
     const merged = mergeAllOf(schemaObj);
     if (typeof merged === "boolean") {
-      return { type: "boolean", title };
+      return { type: "boolean", title: key };
     }
     schemaObj = merged as Exclude<JSONSchema, boolean>;
   }
@@ -130,12 +131,14 @@ export function transformSchemaToFormNode(
 
   // Determine the key to use for I18N lookup.
   // If we are at the root (title is empty), use the schema title if available.
-  const i18nKey = title || schemaObj.title || "";
+  const titleFromKey = key ? formatTitle(key) : "";
+  const i18nKey = schemaObj.title || titleFromKey || "";
 
   const node: FormNode = {
+    key: key || undefined,
     type: type as string,
-    title: getKeyText(i18nKey, schemaObj.title || formatTitle(title)),
-    description: getDescriptionText(title, schemaObj.description || undefined),
+    title: getKeyText(i18nKey, schemaObj.title || titleFromKey),
+    description: getDescriptionText(key, schemaObj.description || undefined),
     defaultValue: schemaObj.default,
     enum: schemaObj.enum as any[],
     required: isRequired,
@@ -151,7 +154,10 @@ export function transformSchemaToFormNode(
   if (selection) {
     node.oneOf = selection.map((sub: JSONSchema, idx: number) => {
       const mergedSub = mergeAllOf(sub);
-      return transformSchemaToFormNode(mergedSub, inferTitle(mergedSub, idx), depth + 1, isRequired);
+      // Pass empty string for key as oneOf options don't have a property key
+      const subNode = transformSchemaToFormNode(mergedSub, "", depth + 1, isRequired);
+      subNode.title = inferTitle(mergedSub, idx);
+      return subNode;
     });
   }
 
@@ -183,7 +189,7 @@ export function transformSchemaToFormNode(
   if (schemaObj.type === "array" && schemaObj.items) {
     // Assuming schema.items is a single schema object
     if (typeof schemaObj.items === "object" && !Array.isArray(schemaObj.items)) {
-      node.items = transformSchemaToFormNode(schemaObj.items as JSONSchema, "Item", depth + 1, false);
+      node.items = transformSchemaToFormNode(schemaObj.items as JSONSchema, "", depth + 1, false);
     }
   }
 
