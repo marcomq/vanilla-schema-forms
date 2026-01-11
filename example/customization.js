@@ -1,7 +1,7 @@
-import { renderObject, renderProperties } from "./renderer";
-import * as templates from "./templates";
-import { setI18n } from "./i18n";
-import { setConfig } from "./config";
+import { renderObject, renderProperties } from "../src/renderer";
+import * as templates from "../src/templates";
+import { setI18n } from "../src/i18n";
+import { setConfig } from "../src/config";
 
 // Apply global I18N overrides
 setI18n({
@@ -28,12 +28,12 @@ setConfig({
 });
 
 export const tlsRenderer = {
-  render: (node, path, elementId) => {
+  render: (node, path, elementId, dataPath) => {
     const requiredProp = node.properties?.["required"];
     
     // Fallback to standard object rendering if 'required' property is missing
     if (!requiredProp) {
-      return renderObject(node, path, elementId);
+      return renderObject(node, path, elementId, false, dataPath);
     }
 
     const otherProps = { ...node.properties };
@@ -41,7 +41,7 @@ export const tlsRenderer = {
     
     const requiredId = `${elementId}.required`;
     const checkbox = templates.renderBoolean(requiredProp, requiredId, `data-toggle-target="${elementId}-options"`);
-    const optionsHtml = renderProperties(otherProps, elementId);
+    const optionsHtml = renderProperties(otherProps, elementId, dataPath);
 
     return `
       <fieldset class="border p-3 rounded mb-3 ui_tls" id="${elementId}">
@@ -55,8 +55,8 @@ export const tlsRenderer = {
 };
 
 export const routesRenderer = {
-  render: (node, _path, elementId) => {
-    const props = node.properties ? renderProperties(node.properties, elementId) : '';
+  render: (node, _path, elementId, dataPath) => {
+    const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : '';
     // Hide title (null). Key generation is handled by getDefaultKey below.
     const ap = templates.renderAdditionalProperties(node, elementId, { title: null });
     const oneOf = templates.renderOneOf(node, elementId);
@@ -85,16 +85,16 @@ export const CUSTOM_RENDERERS = {
   "routes": routesRenderer,
   "output.mode": { render: () => "" },
   "value": {
-    render: (node, path, elementId) => {
+    render: (node, path, elementId, dataPath) => {
       // Only render "Value" headless if it is part of the Routes list
       if (elementId.startsWith("Routes.")) {
-        const props = node.properties ? renderProperties(node.properties, elementId) : '';
+        const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : '';
         const ap = templates.renderAdditionalProperties(node, elementId);
         const oneOf = templates.renderOneOf(node, elementId);
         return templates.renderHeadlessObject(elementId, props + ap + oneOf);
       }
       // Fallback for other "Value" nodes
-      return renderObject(node, path, elementId);
+      return renderObject(node, path, elementId, false, dataPath);
     }
   }
 };

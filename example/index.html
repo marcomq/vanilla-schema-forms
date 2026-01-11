@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Schema Mapper Example</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        #json-output { font-family: monospace; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-7">
+                <h2 class="mb-4">Form</h2>
+                <div id="form-container"></div>
+            </div>
+            <div class="col-md-5">
+                <h2 class="mb-4">Live JSON Output</h2>
+                <textarea id="json-output" class="form-control" rows="30" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initLinked, setCustomRenderers } from '../src/index.ts';
+        import { CUSTOM_RENDERERS } from './customization.js';
+
+        // 1. Register the custom renderers (TLS toggle, Routes layout, etc.)
+        setCustomRenderers(CUSTOM_RENDERERS);
+
+        // 2. Initialize the form
+        await initLinked("form-container", "./schema.json", "json-output");
+    </script>
+</body>
+</html>

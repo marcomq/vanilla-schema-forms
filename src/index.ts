@@ -1,14 +1,14 @@
 import { parseSchema } from "./parser";
 import { renderForm, setCustomRenderers } from "./renderer";
 import * as templates from "./templates";
-import { CUSTOM_RENDERERS } from "./customization.js";
 import { readFormData } from "./form-data-reader";
 import { formStore } from "./state";
 
 export { setConfig } from "./config";
 export { setI18n } from "./i18n";
 export { setTemplates } from "./templates";
-export { setCustomRenderers, renderNode } from "./renderer";
+export { setCustomRenderers, renderNode, renderObject, renderProperties } from "./renderer";
+export { templates };
 export { readFormData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
 
@@ -30,9 +30,6 @@ export async function init(containerId: string, schemaOrUrl: string | any, onDat
 
   try {
     const rootNode = await parseSchema(schemaOrUrl);
-
-    // Register custom renderer for TLS to restore the toggle functionality
-    setCustomRenderers(CUSTOM_RENDERERS as any);
 
     renderForm(rootNode, formContainer);
 
@@ -86,16 +83,6 @@ export async function initLinked(containerId: string, schemaOrUrl: string | any,
         outputElement.textContent = jsonString;
         outputElement.style.whiteSpace = "pre";
       }
-    }
-  });
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener("DOMContentLoaded", async () => {
-    if (document.getElementById("form-container") && document.getElementById("json-output")) {
-      await initLinked("form-container", "/schema.json", "json-output");
-    } else if (document.getElementById("form-container")) {
-      await init("form-container", "/schema.json");
     }
   });
 }

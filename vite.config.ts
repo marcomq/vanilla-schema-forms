@@ -1,19 +1,24 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vitest/config'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { defineConfig } from 'vitest/config';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
+  root: 'example',
   plugins: [
     nodePolyfills({
-      // To add only specific polyfills, add them here. If no option is given,
-      // all polyfills are added.
       include: ['buffer', 'path'],
     })
   ],
+  server: {
+    fs: {
+      allow: ['..']
+    }
+  },
   optimizeDeps: {
     include: ['@apidevtools/json-schema-ref-parser'],
   },
   test: {
+    root: process.cwd(),
     environment: 'happy-dom',
-  },
-})
+  }
+});

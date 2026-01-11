@@ -12,7 +12,7 @@ const DATA_PATH_REGISTRY = new Map<string, string>(); // DataPath -> ElementID
 const ELEMENT_ID_TO_DATA_PATH = new Map<string, string>(); // ElementID -> DataPath
 
 export interface CustomRenderer<T = any> {
-  render?: (node: FormNode, path: string, elementId: string) => T;
+  render?: (node: FormNode, path: string, elementId: string, dataPath: string) => T;
   widget?: string;
   options?: string[];
   getDefaultKey?: (index: number) => string;
@@ -93,7 +93,7 @@ export function renderNode<T = any>(node: FormNode, path: string = "", headless:
   const renderer = findCustomRenderer<T>(elementId);
 
   if (renderer?.render) {
-    return renderer.render(node, path, elementId);
+    return renderer.render(node, path, elementId, dataPath);
   }
 
   // 2. Widget Overrides
