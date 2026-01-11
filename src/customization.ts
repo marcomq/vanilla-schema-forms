@@ -63,17 +63,19 @@ export const routesRenderer: CustomRenderer = {
     return templates.renderObject(node, elementId, props + ap + oneOf);
   },
   getDefaultKey: (index) => `Route ${index + 1}`,
-  renderAdditionalPropertyRow: (valueHtml, defaultKey) => {
+  renderAdditionalPropertyRow: (valueHtml, defaultKey, uniqueId) => {
+    const idAttr = uniqueId ? `id="${uniqueId}"` : "";
+    const forAttr = uniqueId ? `for="${uniqueId}"` : "";
     return `
-    <div class="mb-3 border p-3 rounded ap-row js_ap-row">
-      <div class="mb-2">
-        <label class="form-label fw-bold">Route name</label>
-        <div class="d-flex gap-2">
-            <input type="text" class="form-control ap-key js_ap-key" placeholder="Route name" value="${defaultKey}">
-            <button type="button" class="btn btn-outline-danger btn-remove-ap js_btn-remove-ap">Remove</button>
+    <div class="mb-4 border rounded shadow-sm ap-row js_ap-row">
+      <div class="d-flex align-items-center justify-content-between p-3 bg-light border-bottom rounded-top">
+        <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 70%;">
+            <label class="form-label fw-bold mb-0 text-nowrap" ${forAttr}>Route Name:</label>
+            <input type="text" class="form-control form-control-sm fw-bold ap-key js_ap-key" placeholder="Route name" value="${defaultKey}" ${idAttr}>
         </div>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-ap js_btn-remove-ap">Remove Route</button>
       </div>
-      <div class="flex-grow-1">${valueHtml}</div>
+      <div class="p-3 flex-grow-1">${valueHtml}</div>
     </div>`;
   }
 };
@@ -81,5 +83,18 @@ export const routesRenderer: CustomRenderer = {
 export const CUSTOM_RENDERERS: Record<string, CustomRenderer> = {
   "tls": tlsRenderer,
   "routes": routesRenderer,
-  "output.mode": { render: () => "" }
+  "output.mode": { render: () => "" },
+  "value": {
+    render: (node, path, elementId) => {
+      // Only render "Value" headless if it is part of the Routes list
+      if (elementId.startsWith("Routes.")) {
+        const props = node.properties ? renderProperties(node.properties, elementId) : '';
+        const ap = templates.renderAdditionalProperties(node, elementId);
+        const oneOf = templates.renderOneOf(node, elementId);
+        return templates.renderHeadlessObject(elementId, props + ap + oneOf);
+      }
+      // Fallback for other "Value" nodes
+      return renderObject(node, path, elementId);
+    }
+  }
 };

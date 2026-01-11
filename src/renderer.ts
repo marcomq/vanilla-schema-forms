@@ -10,7 +10,7 @@ export interface CustomRenderer {
   widget?: string;
   options?: string[];
   getDefaultKey?: (index: number) => string;
-  renderAdditionalPropertyRow?: (valueHtml: string, defaultKey: string) => string;
+  renderAdditionalPropertyRow?: (valueHtml: string, defaultKey: string, uniqueId: string) => string;
 }
 
 // Configuration for specific fields
@@ -239,9 +239,11 @@ function attachInteractivity(container: HTMLElement) {
           }
         }
         
+        const uniqueId = `${elementId}.__ap_${index}_key`;
+        
         const rowHtml = renderer?.renderAdditionalPropertyRow 
-          ? renderer.renderAdditionalPropertyRow(valueHtml, defaultKey)
-          : templates.renderAdditionalPropertyRow(valueHtml, defaultKey);
+          ? renderer.renderAdditionalPropertyRow(valueHtml, defaultKey, uniqueId)
+          : templates.renderAdditionalPropertyRow(valueHtml, defaultKey, uniqueId);
         container.insertAdjacentHTML('beforeend', rowHtml);
         container.dispatchEvent(new Event('change', { bubbles: true }));
       }
