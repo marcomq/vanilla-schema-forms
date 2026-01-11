@@ -60,8 +60,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(process.cwd(), 'src/index.ts'),
-      name: 'JsonSchemaMapper',
-      fileName: 'json-schema-mapper',
+      name: 'VanillaSchemaForms',
+          fileName: 'jvanilla-schema-forms',
     },
     outDir: 'dist',
     emptyOutDir: true

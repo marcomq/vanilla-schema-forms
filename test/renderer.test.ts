@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { hydrateNodeWithData } from './renderer';
-import { FormNode } from './parser';
+import { hydrateNodeWithData } from '../src/renderer';
+import { FormNode } from '../src/parser';
 
 describe('hydrateNodeWithData', () => {
   it('preserves primitive values', () => {

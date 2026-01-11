@@ -1,6 +1,6 @@
-# JSON Schema Form Generator
+# Vanilla Schema Forms - A JSON schema driven form generator
 
-This project is a web-based application that dynamically generates HTML forms from a given JSON Schema. It's built using Vite for a fast development experience and uses TypeScript for type safety.
+Vanilla Schema Forms is a web-based application that dynamically generates HTML forms from a given JSON Schema. It is built using Vanilla TypeScript (no heavy frameworks) and Vite for a fast development experience.
 
 ## Features
 
@@ -13,7 +13,7 @@ This project is a web-based application that dynamically generates HTML forms fr
 
 ## Status
 
-This project is in a very early pre-alpha state. I am not using it yet and it may not be working correctly for you.
+Vanilla Schema Forms is in a very early pre-alpha state. I am not using it yet and it may not be working correctly for you.
 
 ## How it Works
 

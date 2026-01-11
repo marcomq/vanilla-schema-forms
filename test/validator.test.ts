@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { initValidator, validateData } from "./validator";
+import { initValidator, validateData } from "../src/validator";
 
 describe("Validator", () => {
   it("validates standard JSON schema constraints", () => {

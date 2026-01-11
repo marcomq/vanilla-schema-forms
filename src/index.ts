@@ -1,5 +1,5 @@
 import { parseSchema } from "./parser";
-import { renderForm, setCustomRenderers } from "./renderer";
+import { renderForm } from "./renderer";
 import * as templates from "./templates";
 import { readFormData } from "./form-data-reader";
 import { formStore } from "./state";

@@ -1,5 +1,5 @@
 {
-  "name": "json-schema-mapper",
+  "name": "vanilla-schema-forms",
   "version": "0.1.0",
   "description": "",
   "scripts": {
@@ -17,16 +17,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/marcomq/json-schema-mapper.git"
+    "url": "git+https://github.com/marcomq/vanilla-schema-forms.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/marcomq/json-schema-mapper/issues"
+    "url": "https://github.com/marcomq/vanilla-schema-forms/issues"
   },
-  "homepage": "https://github.com/marcomq/json-schema-mapper#readme",
+  "homepage": "https://github.com/marcomq/vanilla-schema-forms#readme",
   "devDependencies": {
     "@types/node": "^25.0.5",
     "happy-dom": "^20.1.0",

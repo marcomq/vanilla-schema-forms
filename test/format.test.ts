@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseSchema } from './parser';
-import { renderNode } from './renderer';
+import { parseSchema } from '../src/parser';
+import { renderNode } from '../src/renderer';
 import { JSONSchema } from 'json-schema-to-ts';
 
 describe('Format Support', () => {
