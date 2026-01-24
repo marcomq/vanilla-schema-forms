@@ -9,7 +9,12 @@ export const rendererConfig = {
     select: 'vsf-select',
     label: 'vsf-label',
     fieldset: 'vsf-fieldset',
-    legend: 'legend'
+    legend: 'legend',
+    formItem: 'vsf-form-item',
+    additionalProperties: 'vsf-additional-properties',
+    array: 'vsf-array',
+    arrayItem: 'vsf-array-item',
+    oneOf: 'vsf-oneof'
   },
   classes: {
     input: 'form-control',
@@ -21,14 +26,15 @@ export const rendererConfig = {
 
 export const domRenderer: TemplateRenderer<Node> = {
   renderFieldWrapper: (node: FormNode, elementId: string, input: Node, className: string = "mb-3"): Node => {
-    const children = [
-      h(rendererConfig.elements.label, { className: rendererConfig.classes.label, for: elementId }, node.title, node.required ? h('span', { className: 'text-danger' }, '*') : ''),
-      input
-    ];
-    if (node.description) {
-      children.push(h('div', { className: 'form-text' }, node.description));
-    }
-    return h('div', { className }, ...children);
+    const attrs: any = {
+      className,
+      'element-id': elementId,
+      label: node.title
+    };
+    if (node.required) attrs.required = true;
+    if (node.description) attrs.description = node.description;
+
+    return h(rendererConfig.elements.formItem, attrs, input);
   },
 
   renderString: (node: FormNode, elementId: string): Node => {
@@ -134,23 +140,20 @@ export const domRenderer: TemplateRenderer<Node> = {
   renderAdditionalProperties: (node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): Node => {
     if (!node.additionalProperties) return document.createTextNode('');
 
-    const children = [];
-    if (options?.title !== null) {
-      children.push(h('h6', {}, options?.title ?? getUiText("additional_properties", "Additional Properties")));
-    }
-    children.push(h('div', { className: 'ap-items js_ap-items' }));
-
-    const buttonAttrs: { [key: string]: any } = {
-      type: 'button',
-      className: 'btn btn-sm btn-outline-secondary mt-2 btn-add-ap js_btn-add-ap',
-      'data-id': elementId
+    const attrs: any = {
+      className: 'additional-properties js_additional-properties mt-3 border-top pt-2',
+      'element-id': elementId,
+      'add-text': getUiText("add_property", "Add Property")
     };
-    if (options?.keyPattern) {
-      buttonAttrs['data-key-pattern'] = options.keyPattern;
-    }
-    children.push(h('button', buttonAttrs, getUiText("add_property", "Add Property")));
 
-    return h('div', { className: 'additional-properties js_additional-properties mt-3 border-top pt-2' }, ...children);
+    if (options?.title !== null) {
+      attrs.title = options?.title ?? getUiText("additional_properties", "Additional Properties");
+    }
+    if (options?.keyPattern) {
+      attrs['key-pattern'] = options.keyPattern;
+    }
+    
+    return h(rendererConfig.elements.additionalProperties, attrs);
   },
   renderOneOf: (node: FormNode, elementId: string): Node => {
     if (!node.oneOf || node.oneOf.length === 0) return document.createTextNode('');
@@ -178,35 +181,23 @@ export const domRenderer: TemplateRenderer<Node> = {
       'data-id': elementId
     }, ...optionElements);
 
-    const content = h('div', { className: 'oneof-container ps-3 border-start', id: `${elementId}__oneof_content` });
-
-    const selectContainer = h('div', {}, selectEl, content);
+    const selectContainer = h(rendererConfig.elements.oneOf, { 'element-id': elementId }, selectEl);
     
     const wrapperNode = { ...node, title: getUiText("type_variant", "Type / Variant"), description: undefined, required: false };
     return domRenderer.renderFieldWrapper(wrapperNode, `${elementId}__selector`, selectContainer, "mt-3 border-top pt-3");
   },
   renderArray: (node: FormNode, elementId: string): Node => {
-    const children = [
-      h('div', { className: 'array-items js_array-items', id: `${elementId}-items` })
-    ];
-
-    if (node.items) {
-      children.push(h('button', {
-        type: 'button',
-        className: 'btn btn-sm btn-outline-primary mt-2 btn-add-array-item js_btn-add-array-item',
-        'data-id': elementId,
-        'data-target': `${elementId}-items`
-      }, getUiText("add_item", "Add Item")));
-    }
-
-    const content = h('div', {}, ...children);
+    const content = h(rendererConfig.elements.array, {
+      'element-id': elementId,
+      'add-text': getUiText("add_item", "Add Item")
+    });
     return domRenderer.renderFieldsetWrapper(node, elementId, content, "ui_arr");
   },
   renderArrayItem: (item: Node): Node => {
-    return h('div', { className: 'd-flex gap-2 mb-2 align-items-start array-item-row js_array-item-row' },
-      h('div', { className: 'flex-grow-1' }, item),
-      h('button', { type: 'button', className: 'btn btn-sm btn-outline-danger btn-remove-item js_btn-remove-item', style: 'margin-top: 2rem;' }, getUiText("remove", "Remove"))
-    );
+    return h(rendererConfig.elements.arrayItem, {
+      className: 'array-item-row js_array-item-row', // Class needed for events.ts to find the row
+      'remove-text': getUiText("remove", "Remove")
+    }, item);
   },
   renderAdditionalPropertyRow: (value: Node, defaultKey: string = "", uniqueId: string = ""): Node => {
     const keyAttrs: { [key: string]: any } = {

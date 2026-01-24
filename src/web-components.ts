@@ -128,6 +128,23 @@ export class VsfLabel extends HTMLElement {
 
   connectedCallback() {
     this.style.display = 'contents';
+    this.handleContentChange();
+    
+    // Observe child changes to ensure content is always wrapped in the internal label
+    // This is necessary because VsfFormItem uses innerHTML to set label content,
+    // which would otherwise wipe out the internal <label> element.
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (Array.from(mutation.removedNodes).includes(this.label)) {
+          this.label.innerHTML = '';
+        }
+      });
+      this.handleContentChange();
+    });
+    observer.observe(this, { childList: true });
+  }
+
+  handleContentChange() {
     Array.from(this.childNodes).forEach(node => {
       if (node !== this.label) {
         this.label.appendChild(node);
@@ -180,8 +197,242 @@ export class VsfFieldset extends HTMLElement {
   }
 }
 
+export class VsfLegend extends HTMLElement {
+  static get observedAttributes() {
+    return ['id', 'class'];
+  }
+
+  private legend: HTMLLegendElement;
+
+  constructor() {
+    super();
+    this.legend = document.createElement('legend');
+  }
+
+  connectedCallback() {
+    this.style.display = 'contents';
+    Array.from(this.childNodes).forEach(node => {
+      if (node !== this.legend) {
+        this.legend.appendChild(node);
+      }
+    });
+    if (!this.contains(this.legend)) this.appendChild(this.legend);
+  }
+
+  attributeChangedCallback(name: string, oldValue: string, newValue: string) {
+    if (oldValue === newValue) return;
+    if (newValue !== null) {
+      this.legend.setAttribute(name, newValue);
+      this.removeAttribute(name);
+    } else {
+      this.legend.removeAttribute(name);
+    }
+  }
+}
+
+export class VsfFormItem extends HTMLElement {
+  static get observedAttributes() {
+    return ['label', 'element-id', 'required', 'description'];
+  }
+
+  private labelEl: HTMLElement;
+  private descEl: HTMLElement;
+
+  constructor() {
+    super();
+    this.labelEl = document.createElement('vsf-label');
+    this.descEl = document.createElement('div');
+    this.descEl.className = 'form-text';
+  }
+
+  connectedCallback() {
+    // This component represents the wrapper div, so we keep standard display
+    this.style.display = 'block';
+    // But we ensure the order of children: Label -> Content -> Description
+    this.render();
+  }
+
+  attributeChangedCallback() {
+    if (this.isConnected) {
+      this.render();
+    }
+  }
+
+  render() {
+    const id = this.getAttribute('element-id');
+    const label = this.getAttribute('label');
+    const required = this.hasAttribute('required');
+    const desc = this.getAttribute('description');
+
+    // 1. Setup Label
+    if (label) {
+      this.labelEl.setAttribute('class', 'form-label');
+      if (id) this.labelEl.setAttribute('for', id);
+      this.labelEl.innerHTML = `${label}${required ? '<span class="text-danger">*</span>' : ''}`;
+      if (!this.contains(this.labelEl)) {
+        this.prepend(this.labelEl);
+      }
+    } else {
+      if (this.contains(this.labelEl)) this.removeChild(this.labelEl);
+    }
+
+    // 2. Setup Description
+    if (desc) {
+      this.descEl.textContent = desc;
+      if (!this.contains(this.descEl)) {
+        this.appendChild(this.descEl);
+      }
+    } else {
+      if (this.contains(this.descEl)) this.removeChild(this.descEl);
+    }
+  }
+}
+
+export class VsfAdditionalProperties extends HTMLElement {
+  static get observedAttributes() {
+    return ['title', 'element-id', 'add-text', 'key-pattern'];
+  }
+
+  connectedCallback() {
+    const title = this.getAttribute('title');
+    const elementId = this.getAttribute('element-id');
+    const addText = this.getAttribute('add-text') || 'Add Property';
+    const keyPattern = this.getAttribute('key-pattern');
+
+    // Clear and rebuild to ensure structure
+    // Note: In a real app we might want to preserve existing items if they were moved,
+    // but for this renderer usage, we are usually building from scratch.
+    
+    // 1. Title
+    if (title) {
+      let titleEl = this.querySelector('h6');
+      if (!titleEl) {
+        titleEl = document.createElement('h6');
+        this.prepend(titleEl);
+      }
+      titleEl.textContent = title;
+    }
+
+    // 2. Items Container (The renderer will append items here, so we just ensure it exists)
+    let itemsContainer = this.querySelector('.js_ap-items');
+    if (!itemsContainer) {
+      itemsContainer = document.createElement('div');
+      itemsContainer.className = 'ap-items js_ap-items';
+      this.appendChild(itemsContainer);
+    }
+
+    // 3. Add Button
+    let btn = this.querySelector('.js_btn-add-ap');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-outline-secondary mt-2 btn-add-ap js_btn-add-ap';
+      btn.setAttribute('type', 'button');
+      this.appendChild(btn);
+    }
+    
+    if (elementId) btn.setAttribute('data-id', elementId);
+    if (keyPattern) btn.setAttribute('data-key-pattern', keyPattern);
+    btn.textContent = addText;
+  }
+}
+
+export class VsfArray extends HTMLElement {
+  static get observedAttributes() {
+    return ['element-id', 'add-text'];
+  }
+
+  connectedCallback() {
+    const elementId = this.getAttribute('element-id');
+    const addText = this.getAttribute('add-text') || 'Add Item';
+
+    // 1. Items Container
+    let itemsContainer = this.querySelector('.js_array-items');
+    if (!itemsContainer) {
+      itemsContainer = document.createElement('div');
+      itemsContainer.className = 'array-items js_array-items';
+      if (elementId) itemsContainer.id = `${elementId}-items`;
+      this.prepend(itemsContainer);
+    }
+
+    // 2. Add Button
+    let btn = this.querySelector('.js_btn-add-array-item');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-outline-primary mt-2 btn-add-array-item js_btn-add-array-item';
+      btn.setAttribute('type', 'button');
+      this.appendChild(btn);
+    }
+    
+    if (elementId) {
+      btn.setAttribute('data-id', elementId);
+      btn.setAttribute('data-target', `${elementId}-items`);
+    }
+    btn.textContent = addText;
+  }
+}
+
+export class VsfArrayItem extends HTMLElement {
+  static get observedAttributes() {
+    return ['remove-text'];
+  }
+
+  connectedCallback() {
+    this.style.display = 'flex';
+    this.classList.add('gap-2', 'mb-2', 'align-items-start');
+
+    // 1. Content Wrapper (for the item itself)
+    // We move existing children (the rendered item) into a wrapper if not already there
+    let contentWrapper = this.querySelector('.flex-grow-1');
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'flex-grow-1';
+      while (this.firstChild) {
+        contentWrapper.appendChild(this.firstChild);
+      }
+      this.appendChild(contentWrapper);
+    }
+
+    // 2. Remove Button
+    let btn = this.querySelector('.js_btn-remove-item');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-outline-danger btn-remove-item js_btn-remove-item';
+      btn.setAttribute('type', 'button');
+      // Align with input height or label
+      btn.style.marginTop = '2rem'; 
+      this.appendChild(btn);
+    }
+    btn.textContent = this.getAttribute('remove-text') || 'Remove';
+  }
+}
+
+export class VsfOneOf extends HTMLElement {
+  static get observedAttributes() {
+    return ['element-id'];
+  }
+
+  connectedCallback() {
+    const elementId = this.getAttribute('element-id');
+    
+    // 1. Content Container
+    let content = this.querySelector('.oneof-container');
+    if (!content) {
+      content = document.createElement('div');
+      content.className = 'oneof-container ps-3 border-start';
+      if (elementId) content.id = `${elementId}__oneof_content`;
+      this.appendChild(content);
+    }
+  }
+}
+
 // Register components if not already defined
 if (!customElements.get('vsf-input')) customElements.define('vsf-input', VsfInput);
 if (!customElements.get('vsf-select')) customElements.define('vsf-select', VsfSelect);
 if (!customElements.get('vsf-label')) customElements.define('vsf-label', VsfLabel);
 if (!customElements.get('vsf-fieldset')) customElements.define('vsf-fieldset', VsfFieldset);
+if (!customElements.get('vsf-legend')) customElements.define('vsf-legend', VsfLegend);
+if (!customElements.get('vsf-form-item')) customElements.define('vsf-form-item', VsfFormItem);
+if (!customElements.get('vsf-additional-properties')) customElements.define('vsf-additional-properties', VsfAdditionalProperties);
+if (!customElements.get('vsf-array')) customElements.define('vsf-array', VsfArray);
+if (!customElements.get('vsf-array-item')) customElements.define('vsf-array-item', VsfArrayItem);
+if (!customElements.get('vsf-oneof')) customElements.define('vsf-oneof', VsfOneOf);

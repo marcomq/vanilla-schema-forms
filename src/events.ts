@@ -299,7 +299,8 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
   // BUT since we are decoupling, we should ideally remove it from store.
   // Implementation: Find the key input in the row.
   const keyInput = row?.querySelector('.js_ap-key') as HTMLInputElement;
-  const elementId = target.closest('.js_additional-properties')?.parentElement?.id; // Parent object ID
+  const apElement = target.closest('.js_additional-properties');
+  const elementId = apElement?.getAttribute('element-id');
 
   if (keyInput && keyInput.value) {
     if (elementId) {

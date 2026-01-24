@@ -14,7 +14,7 @@ export type { RenderContext, CustomRenderer } from "./types";
 export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
 export { domRenderer, rendererConfig };
-export { VsfInput, VsfSelect, VsfLabel, VsfFieldset } from "./web-components";
+export { VsfInput, VsfSelect, VsfLabel, VsfFieldset, VsfLegend, VsfFormItem, VsfAdditionalProperties, VsfArray, VsfArrayItem, VsfOneOf } from "./web-components";
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 
