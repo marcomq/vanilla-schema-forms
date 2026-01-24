@@ -7,21 +7,14 @@ import { setConfig } from "../src/config";
 // Apply global I18N overrides
 setI18n({
   keys: {
-    "Map_of_Route": "Routes"
+    "Map_of_Route": "Routes" // Rename "Map of Route" to "Routes" in the UI
   }
 });
 
-const {
-  renderBoolean,
-  renderOneOf,
-  renderObject: templateRenderObject,
-  renderHeadlessObject,
-  renderFragment,
-  renderAdditionalProperties
-} = domRenderer;
-
+// Configure global visibility rules
 setConfig({
   visibility: {
+    // Custom visibility logic based on node description and path
     customVisibility: (node, path) => {
       const description = node.description || "";
       const lowerPath = path.toLowerCase();
@@ -37,6 +30,10 @@ setConfig({
   }
 });
 
+/**
+ * Custom renderer for TLS configuration.
+ * It renders a checkbox for the 'required' property and toggles the visibility of other properties.
+ */
 export const tlsRenderer = {
   render: (node, path, elementId, dataPath) => {
     const requiredProp = node.properties?.["required"];
@@ -50,7 +47,7 @@ export const tlsRenderer = {
     delete otherProps["required"];
     
     const requiredId = `${elementId}.required`;
-    const checkbox = renderBoolean(requiredProp, requiredId, `data-toggle-target="${elementId}-options"`);
+    const checkbox = domRenderer.renderBoolean(requiredProp, requiredId, `data-toggle-target="${elementId}-options"`);
     const optionsContent = renderProperties(otherProps, elementId, dataPath);
 
     return h('fieldset', { className: 'border p-3 rounded mb-3 ui_tls', id: elementId },
@@ -61,14 +58,18 @@ export const tlsRenderer = {
   }
 };
 
+/**
+ * Custom renderer for Routes (Map/Dictionary).
+ * It handles dynamic keys for additional properties and provides a custom UI for adding/removing routes.
+ */
 export const routesRenderer = {
   render: (node, _path, elementId, dataPath) => {
-    const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : renderFragment([]);
+    const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
     // Hide title (null). Key generation is handled by getDefaultKey below.
-    const ap = renderAdditionalProperties(node, elementId, { title: null });
-    const oneOf = renderOneOf(node, elementId);
-    const content = renderFragment([props, ap, oneOf]);
-    return templateRenderObject(node, elementId, content);
+    const ap = domRenderer.renderAdditionalProperties(node, elementId, { title: null });
+    const oneOf = domRenderer.renderOneOf(node, elementId);
+    const content = domRenderer.renderFragment([props, ap, oneOf]);
+    return domRenderer.renderObject(node, elementId, content);
   },
   getDefaultKey: (index) => `Route ${index + 1}`,
   renderAdditionalPropertyRow: (valueHtml, defaultKey, uniqueId) => {
@@ -96,6 +97,9 @@ export const routesRenderer = {
   }
 };
 
+/**
+ * Registry of custom renderers.
+ */
 export const CUSTOM_RENDERERS = {
   "tls": tlsRenderer,
   "routes": routesRenderer,
@@ -104,11 +108,11 @@ export const CUSTOM_RENDERERS = {
     render: (node, path, elementId, dataPath) => {
       // Only render "Value" headless if it is part of the Routes list
       if (elementId.startsWith("Routes.")) {
-        const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : renderFragment([]);
-        const ap = renderAdditionalProperties(node, elementId);
-        const oneOf = renderOneOf(node, elementId);
-        const content = renderFragment([props, ap, oneOf]);
-        return renderHeadlessObject(elementId, content);
+        const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
+        const ap = domRenderer.renderAdditionalProperties(node, elementId);
+        const oneOf = domRenderer.renderOneOf(node, elementId);
+        const content = domRenderer.renderFragment([props, ap, oneOf]);
+        return domRenderer.renderHeadlessObject(elementId, content);
       }
       // Fallback for other "Value" nodes
       return renderObject(node, path, elementId, false, dataPath);

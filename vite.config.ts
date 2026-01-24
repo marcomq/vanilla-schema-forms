@@ -20,5 +20,7 @@ export default defineConfig({
   test: {
     root: process.cwd(),
     environment: 'happy-dom',
+    include: ['test/**/*.test.ts'],
+    exclude: ['playwright-tests/**'],
   }
 });

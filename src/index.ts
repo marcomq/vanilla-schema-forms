@@ -1,10 +1,11 @@
+import "./web-components";
 import { parseSchema } from "./parser";
 import { renderForm } from "./renderer";
 import { type CustomRenderer } from "./types";
 import { generateDefaultData } from "./form-data-reader";
 import { Store } from "./state";
 import { CONFIG } from "./config";
-import { domRenderer } from "./dom-renderer";
+import { domRenderer, rendererConfig } from "./dom-renderer";
 
 export { setConfig } from "./config";
 export { setI18n } from "./i18n";
@@ -12,7 +13,8 @@ export { renderNode, renderObject, renderProperties } from "./renderer";
 export type { RenderContext, CustomRenderer } from "./types";
 export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
-export { domRenderer };
+export { domRenderer, rendererConfig };
+export { VsfInput, VsfSelect, VsfLabel, VsfFieldset } from "./web-components";
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 

@@ -3,10 +3,26 @@ import { getUiText } from "./i18n";
 import { h } from "./hyperscript";
 import { TemplateRenderer } from "./types";
 
+export const rendererConfig = {
+  elements: {
+    input: 'vsf-input',
+    select: 'vsf-select',
+    label: 'vsf-label',
+    fieldset: 'vsf-fieldset',
+    legend: 'legend'
+  },
+  classes: {
+    input: 'form-control',
+    select: 'form-select',
+    label: 'form-label',
+    invalid: 'is-invalid'
+  }
+};
+
 export const domRenderer: TemplateRenderer<Node> = {
   renderFieldWrapper: (node: FormNode, elementId: string, input: Node, className: string = "mb-3"): Node => {
     const children = [
-      h('label', { className: 'form-label', for: elementId }, node.title, node.required ? h('span', { className: 'text-danger' }, '*') : ''),
+      h(rendererConfig.elements.label, { className: rendererConfig.classes.label, for: elementId }, node.title, node.required ? h('span', { className: 'text-danger' }, '*') : ''),
       input
     ];
     if (node.description) {
@@ -18,7 +34,7 @@ export const domRenderer: TemplateRenderer<Node> = {
   renderString: (node: FormNode, elementId: string): Node => {
     const attrs: { [key: string]: any } = {
       type: 'text',
-      className: 'form-control',
+      className: rendererConfig.classes.input,
       id: elementId,
       value: node.defaultValue || ''
     };
@@ -38,7 +54,7 @@ export const domRenderer: TemplateRenderer<Node> = {
       }
     }
 
-    const inputEl = h('input', attrs);
+    const inputEl = h(rendererConfig.elements.input, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
 
@@ -46,19 +62,19 @@ export const domRenderer: TemplateRenderer<Node> = {
   // For now, they will throw an error.
   renderFieldsetWrapper: (node: FormNode, elementId: string, content: Node, className: string = ""): Node => {
     const children: Node[] = [
-      h('legend', { className: 'h6' }, node.title)
+      h(rendererConfig.elements.legend, { className: 'h6' }, node.title)
     ];
     if (node.description) {
       children.push(h('div', { className: 'form-text mb-3' }, node.description));
     }
     children.push(content);
 
-    return h('fieldset', { className: `border p-3 rounded mb-3 ${className}`, id: elementId }, ...children);
+    return h(rendererConfig.elements.fieldset, { className: `border p-3 rounded mb-3 ${className}`, id: elementId }, ...children);
   },
   renderNumber: (node: FormNode, elementId: string): Node => {
     const attrs: { [key: string]: any } = {
       type: 'number',
-      className: 'form-control',
+      className: rendererConfig.classes.input,
       id: elementId,
       value: node.defaultValue !== undefined ? node.defaultValue : ''
     };
@@ -67,10 +83,10 @@ export const domRenderer: TemplateRenderer<Node> = {
     if (node.minimum !== undefined) attrs.min = node.minimum;
     if (node.maximum !== undefined) attrs.max = node.maximum;
 
-    const inputEl = h('input', attrs);
+    const inputEl = h(rendererConfig.elements.input, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
-  renderBoolean: (node: FormNode, elementId: string, attributes: string = ""): Node => {
+  renderBoolean: (node: FormNode, elementId: string, _attributes: string = ""): Node => {
     const attrs: { [key: string]: any } = {
       type: 'checkbox',
       className: 'form-check-input',
@@ -84,8 +100,8 @@ export const domRenderer: TemplateRenderer<Node> = {
     // I am not sure what it was for, but I am keeping the signature for now.
     
     const children = [
-      h('input', attrs),
-      h('label', { className: 'form-check-label', for: elementId }, node.title, node.required ? h('span', { className: 'text-danger' }, '*') : ''),
+      h(rendererConfig.elements.input, attrs),
+      h(rendererConfig.elements.label, { className: 'form-check-label', for: elementId }, node.title, node.required ? h('span', { className: 'text-danger' }, '*') : ''),
     ];
 
     if (node.description) {
@@ -104,12 +120,12 @@ export const domRenderer: TemplateRenderer<Node> = {
     });
 
     const attrs: { [key: string]: any } = {
-      className: 'form-select',
+      className: rendererConfig.classes.select,
       id: elementId
     };
     if (node.required) attrs.required = true;
 
-    const selectEl = h('select', attrs, ...optionElements);
+    const selectEl = h(rendererConfig.elements.select, attrs, ...optionElements);
     return domRenderer.renderFieldWrapper(node, elementId, selectEl);
   },
   renderObject: (node: FormNode, elementId: string, content: Node): Node => {
