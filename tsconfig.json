@@ -25,5 +25,5 @@
   },
   "include": [
     "src"
-, "test/**/*.ts", "example/customization.js"  ]
+, "test/**/*.ts", "example/customization.js", "playwright-tests/e2e.spec.ts"  ]
 }

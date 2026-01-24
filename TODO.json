@@ -1,0 +1,23 @@
+[
+  {
+    "id": "TASK-003",
+    "title": "Refactor Renderer to DOM API",
+    "description": "The renderer returns HTML strings (`innerHTML`). This causes focus loss and is generally insecure. Refeactor to either use hyperscript helper or web compontents. It would be great if both would be possible in custom temaplates, in that case, use web components for the templates. To make sure that everything still works as expected, run the playwright test in background, it should still work after change.",
+    "impact": "High",
+    "affectedFiles": ["src/renderer.ts", "src/templates.ts"]
+  },
+  {
+    "id": "TASK-004",
+    "title": "Implement Native UI Schema Support",
+    "description": "Layouts are currently handled via a config map injected into the data schema traversal. Implement a dedicated UI Schema traversal to drive rendering (Layouts, Groups, Controls).",
+    "impact": "Medium",
+    "affectedFiles": ["src/renderer.ts", "src/ui-schema-adapter.ts"]
+  },
+  {
+    "id": "TASK-005",
+    "title": "Robust Path Handling",
+    "description": "Paths are concatenated strings (`parent + '.' + key`). This fails with keys containing dots or brackets. Refactor to use Array paths (`['parent', 'key']`).",
+    "impact": "Medium",
+    "affectedFiles": ["src/state.ts", "src/renderer.ts", "src/parser.ts"]
+  }
+]
