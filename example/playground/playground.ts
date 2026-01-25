@@ -1,4 +1,4 @@
-import { init, setConfig, resetConfig, resetI18n, adaptUiSchema } from '../../src/index';
+import { init, setConfig, resetConfig, resetI18n, adaptUiSchema, setCustomRenderers, setI18n, h, renderObject, renderProperties, domRenderer } from '../../src/index';
 import defaultSchema from '../schema.json';
 
 // --- Default Examples ---
@@ -82,19 +82,43 @@ async function render() {
   let schema, config, initialData;
   try {
     schema = JSON.parse(els.schema.value);
-    config = els.config.value ? JSON.parse(els.config.value) : {};
     initialData = els.data.value ? JSON.parse(els.data.value) : undefined;
+
+    // Try parsing config as JSON, fallback to JS eval
+    try {
+      config = els.config.value ? JSON.parse(els.config.value) : {};
+      console.log("json found");
+    } catch {
+      try {
+        // Try as expression (wrapped in parens to ensure it's an expression, not a block, and to fail on multiple statements)
+        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', `return (${els.config.value});`);
+        config = fn(h, renderObject, renderProperties, domRenderer, setI18n, setConfig, setCustomRenderers);
+      } catch (e) {
+        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', els.config.value);
+        config = fn(h, renderObject, renderProperties, domRenderer, setI18n, setConfig, setCustomRenderers);
+      }
+      console.log("js found");
+      console.log(config);
+    }
   } catch (e) {
-    alert("Invalid JSON in one of the editors.");
+    alert("Invalid JSON or JS in one of the editors: " + `${e}`,);
     return;
   }
 
   // 3. Apply Config
-  if (config.uiSchema) {
-    adaptUiSchema(config.uiSchema, schema.title || "root");
+  // Check if it's a wrapper object with renderers/i18n
+  let uiConfig = config || {};
+  if (uiConfig.renderers || uiConfig.i18n || uiConfig.config) {
+    if (uiConfig.renderers) setCustomRenderers(uiConfig.renderers);
+    if (uiConfig.i18n) setI18n(uiConfig.i18n);
+    uiConfig = uiConfig.config || {};
+  }
+
+  if (uiConfig.uiSchema) {
+    adaptUiSchema(uiConfig.uiSchema, schema.title || "root");
   }
   // Merge other config options if present
-  setConfig(config);
+  setConfig(uiConfig);
 
   // 4. Initialize Form
   let form: any;
