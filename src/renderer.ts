@@ -12,13 +12,6 @@ const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
   }
 };
 
-// Global reference to the current rendering context to support legacy calls
-let activeContext: RenderContext | null = null;
-
-function isRenderContext(obj: any): obj is RenderContext {
-  return obj && typeof obj === 'object' && 'store' in obj && 'config' in obj;
-}
-
 /**
  * Renders a form into the container based on the parsed schema tree.
  * @param rootNode - The root FormNode of the schema.
@@ -27,12 +20,12 @@ function isRenderContext(obj: any): obj is RenderContext {
 export function renderForm(rootNode: FormNode, formContainer: HTMLElement, store: Store<any>, config: any, customRenderers: Record<string, CustomRenderer<any>> = {}) {
   const context: RenderContext = {
     store,
+    rootNode,
     config,
     nodeRegistry: new Map(),
     dataPathRegistry: new Map(),
     elementIdToDataPath: new Map(),
     customRenderers: { ...DEFAULT_CUSTOM_RENDERERS, ...customRenderers },
-    rootNode
   };
 
   const node = renderNode(context, rootNode, "", false, "");
@@ -60,49 +53,7 @@ export function findCustomRenderer(context: RenderContext, elementId: string): C
   return bestMatch;
 }
 
-export function renderNode(context: RenderContext, node: FormNode, path?: string, headless?: boolean, dataPath?: string): Node;
-export function renderNode(
-  arg1: RenderContext | FormNode,
-  arg2: FormNode | string,
-  arg3: string | boolean = "",
-  arg4: boolean | string = false,
-  arg5: string = ""
-): Node {
-  let context: RenderContext;
-  let node: FormNode;
-  let path: string;
-  let headless: boolean;
-  let dataPath: string;
-
-  if (isRenderContext(arg1)) {
-    context = arg1;
-    node = arg2 as FormNode;
-    path = arg3 as string;
-    headless = arg4 as boolean;
-    dataPath = arg5;
-  } else {
-    if (!activeContext) throw new Error("RenderContext missing in renderNode and no active context found.");
-    context = activeContext;
-    node = arg1 as FormNode;
-    path = arg2 as string;
-    
-    // Handle legacy signature variations: renderNode(node, path, headless?, dataPath?)
-    if (typeof arg3 === 'string') {
-      headless = false;
-      dataPath = arg3;
-    } else if (typeof arg3 === 'boolean') {
-      headless = arg3;
-      dataPath = typeof arg4 === 'string' ? arg4 : "";
-    } else {
-      headless = false;
-      dataPath = typeof arg4 === 'string' ? arg4 : "";
-    }
-  }
-
-  const prevContext = activeContext;
-  activeContext = context;
-
-  try {
+export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: string = ""): Node {
   let segment = node.key;
   if (!segment) {
     // If no key (e.g. root or oneOf variant), use a prefixed title to avoid collision
@@ -171,52 +122,9 @@ export function renderNode(
     case "null": return domRenderer.renderNull(node);
     default: return domRenderer.renderUnsupported(node);
   }
-  } finally {
-    activeContext = prevContext;
-  }
 }
 
-export function renderObject(context: RenderContext, node: FormNode, path: string, elementId: string, headless: boolean, dataPath: string): Node;
-export function renderObject(node: FormNode, elementId: string, headless: boolean, dataPath: string): Node;
-export function renderObject(
-  arg1: RenderContext | FormNode,
-  arg2: FormNode | string,
-  arg3: string | boolean,
-  arg4: string | boolean,
-  arg5: boolean | string = false,
-  arg6: string = ""
-): Node {
-  let context: RenderContext;
-  let node: FormNode;
-  let elementId: string;
-  let headless: boolean;
-  let dataPath: string;
-
-  if (isRenderContext(arg1)) {
-    context = arg1;
-    node = arg2 as FormNode;
-    // arg3 is 'path', currently unused in renderObject logic but kept for signature compatibility
-    elementId = arg4 as string;
-    headless = arg5 as boolean;
-    dataPath = arg6;
-  } else {
-    if (!activeContext) throw new Error("RenderContext missing in renderObject");
-    context = activeContext;
-    node = arg1 as FormNode;
-    elementId = arg2 as string;
-    
-    if (typeof arg3 === 'string') {
-      headless = false;
-      dataPath = arg3;
-    } else if (typeof arg3 === 'boolean') {
-      headless = arg3;
-      dataPath = typeof arg4 === 'string' ? arg4 : "";
-    } else {
-      headless = false;
-      dataPath = typeof arg4 === 'string' ? arg4 : "";
-    }
-  }
-
+export function renderObject(context: RenderContext, node: FormNode, _path: string, elementId: string, headless: boolean, dataPath: string): Node {
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
   const ap = domRenderer.renderAdditionalProperties(node, elementId);
   const oneOf = domRenderer.renderOneOf(node, elementId);
@@ -229,26 +137,7 @@ export function renderObject(
   return domRenderer.renderObject(node, elementId, content);
 }
 
-export function renderProperties(context: RenderContext, properties: { [key: string]: FormNode }, parentId: string, parentDataPath?: string): Node;
-export function renderProperties(arg1: any, arg2: any, arg3: string, arg4?: string): Node {
-  let context: RenderContext;
-  let properties: { [key: string]: FormNode };
-  let parentId: string;
-  let parentDataPath: string;
-
-  if (isRenderContext(arg1)) {
-    context = arg1;
-    properties = arg2 as { [key: string]: FormNode };
-    parentId = arg3;
-    parentDataPath = arg4 || "";
-  } else {
-    if (!activeContext) throw new Error("RenderContext missing in renderProperties");
-    context = activeContext;
-    properties = arg1 as { [key: string]: FormNode };
-    parentId = arg2 as string;
-    parentDataPath = arg3;
-  }
-
+export function renderProperties(context: RenderContext, properties: { [key: string]: FormNode }, parentId: string, parentDataPath: string = ""): Node {
   const groups = context.config.layout.groups[parentId] || [];
   const groupedKeys = new Set(groups.flatMap((g: { keys: string[]; title?: string; className?: string; }) => g.keys));
  

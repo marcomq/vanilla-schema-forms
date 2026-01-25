@@ -4,6 +4,7 @@
     "title": "Refactor Renderer to DOM API",
     "description": "The renderer returns HTML strings (`innerHTML`). This causes focus loss and is generally insecure. Refeactor to either use hyperscript helper or web compontents. It would be great if both would be possible in custom temaplates, in that case, use web components for the templates. To make sure that everything still works as expected, run the playwright test in background, it should still work after change.",
     "impact": "High",
+    "status": "In Progress",
     "affectedFiles": ["@src/renderer.ts", "@src/templates.ts"]
   },
   {
@@ -11,6 +12,7 @@
     "title": "Implement Native UI Schema Support",
     "description": "Layouts are currently handled via a config map injected into the data schema traversal. Implement a dedicated UI Schema traversal to drive rendering (Layouts, Groups, Controls).",
     "impact": "Medium",
+    "status": "Unknown",
     "affectedFiles": ["@src/renderer.ts", "@src/ui-schema-adapter.ts"]
   },
   {
@@ -18,6 +20,31 @@
     "title": "Robust Path Handling",
     "description": "Paths are concatenated strings (`parent + '.' + key`). This fails with keys containing dots or brackets. Refactor to use Array paths (`['parent', 'key']`).",
     "impact": "Medium",
+    "status": "Unknown",
     "affectedFiles": ["@src/state.ts", "@src/renderer.ts", "@src/parser.ts"]
+  },
+  {
+    "id": "TASK-006",
+    "title": "Create Playground",
+    "description": "Create a playground to test and modify multiple different schema and customization files, similar as for jsonschema-form in https://rjsf-team.github.io/react-jsonschema-form/",
+    "impact": "Unknown",
+    "status": "In Queue",
+    "affectedFiles": [
+      "@example/customization.js",
+      "@src/index.ts",
+      "@example/index.html"
+    ]
+  },
+  {
+    "id": "TASK-007",
+    "title": "Optimize Customization for mq-bridge schema",
+    "description": "Optimize schema to improve UX: 1. Always add an empty route. 2. Endpoint a sfirst parameter. 3. Split input and output into visibly separate sections. 4. Compact input format with label on left, input next and description on right. 5. Try to have checkboxes for middlewares, as multiple middleware with same type doesn't make sense.",
+    "impact": "Unknown",
+    "status": "In Queue",
+    "affectedFiles": [
+      "@example/customization.js",
+      "@src/index.ts",
+      "@example/index.html"
+    ]
   }
 ]

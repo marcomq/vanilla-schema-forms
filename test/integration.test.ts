@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import '../src/web-components';
 import { parseSchema } from '../src/parser';
 import { renderForm } from '../src/renderer';
 import { Store } from '../src/state';

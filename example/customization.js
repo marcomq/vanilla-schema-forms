@@ -35,12 +35,12 @@ setConfig({
  * It renders a checkbox for the 'required' property and toggles the visibility of other properties.
  */
 export const tlsRenderer = {
-  render: (node, path, elementId, dataPath) => {
+  render: (node, path, elementId, dataPath, context) => {
     const requiredProp = node.properties?.["required"];
     
     // Fallback to standard object rendering if 'required' property is missing
     if (!requiredProp) {
-      return renderObject(node, path, elementId, false, dataPath);
+      return renderObject(context, node, path, elementId, false, dataPath);
     }
 
     const otherProps = { ...node.properties };
@@ -48,7 +48,7 @@ export const tlsRenderer = {
     
     const requiredId = `${elementId}.required`;
     const checkbox = domRenderer.renderBoolean(requiredProp, requiredId, `data-toggle-target="${elementId}-options"`);
-    const optionsContent = renderProperties(otherProps, elementId, dataPath);
+    const optionsContent = renderProperties(context, otherProps, elementId, dataPath);
 
     return h('fieldset', { className: 'border p-3 rounded mb-3 ui_tls', id: elementId },
       h('legend', { className: 'h6' }, node.title),
@@ -63,8 +63,8 @@ export const tlsRenderer = {
  * It handles dynamic keys for additional properties and provides a custom UI for adding/removing routes.
  */
 export const routesRenderer = {
-  render: (node, _path, elementId, dataPath) => {
-    const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
+  render: (node, _path, elementId, dataPath, context) => {
+    const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
     // Hide title (null). Key generation is handled by getDefaultKey below.
     const ap = domRenderer.renderAdditionalProperties(node, elementId, { title: null });
     const oneOf = domRenderer.renderOneOf(node, elementId);
@@ -105,17 +105,17 @@ export const CUSTOM_RENDERERS = {
   "routes": routesRenderer,
   "output.mode": { render: () => document.createDocumentFragment() },
   "value": {
-    render: (node, path, elementId, dataPath) => {
+    render: (node, path, elementId, dataPath, context) => {
       // Only render "Value" headless if it is part of the Routes list
       if (elementId.startsWith("Routes.")) {
-        const props = node.properties ? renderProperties(node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
+        const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
         const ap = domRenderer.renderAdditionalProperties(node, elementId);
         const oneOf = domRenderer.renderOneOf(node, elementId);
         const content = domRenderer.renderFragment([props, ap, oneOf]);
         return domRenderer.renderHeadlessObject(elementId, content);
       }
       // Fallback for other "Value" nodes
-      return renderObject(node, path, elementId, false, dataPath);
+      return renderObject(context, node, path, elementId, false, dataPath);
     }
   }
 };

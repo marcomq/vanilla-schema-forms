@@ -162,15 +162,18 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
 function setupActionHandlers(context: RenderContext, container: HTMLElement) {
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
+    const button = target.closest('button');
+
+    if (!button) return;
     
-    if (target.classList.contains(rendererConfig.triggers.addArrayItem)) {
-      handleArrayAddItem(context, target);
-    } else if (target.classList.contains(rendererConfig.triggers.removeArrayItem)) {
-      handleArrayRemoveItem(context, target, container);
-    } else if (target.classList.contains(rendererConfig.triggers.addAdditionalProperty)) {
-      handleApAddItem(context, target);
-    } else if (target.classList.contains(rendererConfig.triggers.removeAdditionalProperty)) {
-      handleApRemoveItem(context, target, container);
+    if (button.classList.contains(rendererConfig.triggers.addArrayItem)) {
+      handleArrayAddItem(context, button);
+    } else if (button.classList.contains(rendererConfig.triggers.removeArrayItem)) {
+      handleArrayRemoveItem(context, button, container);
+    } else if (button.classList.contains(rendererConfig.triggers.addAdditionalProperty)) {
+      handleApAddItem(context, button);
+    } else if (button.classList.contains(rendererConfig.triggers.removeAdditionalProperty)) {
+      handleApRemoveItem(context, button, container);
     }
   });
 }
@@ -235,7 +238,8 @@ function handleArrayRemoveItem(context: RenderContext, target: HTMLElement, cont
 function handleApAddItem(context: RenderContext, target: HTMLElement) {
   const elementId = target.getAttribute('data-id');
   const node = context.nodeRegistry.get(elementId!);
-  const container = target.parentElement?.querySelector(`.${rendererConfig.triggers.additionalPropertyItems}`);
+  const wrapper = target.closest(`.${rendererConfig.triggers.additionalPropertiesWrapper}`);
+  const container = wrapper?.querySelector(`.${rendererConfig.triggers.additionalPropertyItems}`);
   
   if (node && container) {
     const index = container.children.length;

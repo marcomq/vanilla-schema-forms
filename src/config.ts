@@ -29,16 +29,10 @@ type PartialConfig = {
 };
 
 export function setConfig(config: PartialConfig) {
-  if (config.sorting) {
-    CONFIG.sorting = { ...CONFIG.sorting, ...config.sorting };
-  }
-  if (config.visibility) {
-    CONFIG.visibility = { ...CONFIG.visibility, ...config.visibility };
-  }
-  if (config.parser) {
-    CONFIG.parser = { ...CONFIG.parser, ...config.parser };
-  }
-  if (config.layout) {
-    CONFIG.layout = { ...CONFIG.layout, ...config.layout };
+  for (const key in config) {
+    if (Object.prototype.hasOwnProperty.call(config, key) && Object.prototype.hasOwnProperty.call(CONFIG, key)) {
+      const configKey = key as keyof ConfigType;
+      CONFIG[configKey] = { ...CONFIG[configKey], ...config[configKey] };
+    }
   }
 }
