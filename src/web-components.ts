@@ -4,6 +4,8 @@
  * while maintaining compatibility with standard form events and CSS frameworks.
  */
 
+import { rendererConfig } from "./dom-renderer";
+
 export class VsfInput extends HTMLElement {
   static get observedAttributes() {
     return ['id', 'class', 'type', 'value', 'checked', 'placeholder', 'required', 'disabled', 'readonly', 'min', 'max', 'step', 'minlength', 'maxlength', 'pattern', 'data-toggle-target'];
@@ -242,7 +244,7 @@ export class VsfFormItem extends HTMLElement {
     super();
     this.labelEl = document.createElement('vsf-label');
     this.descEl = document.createElement('div');
-    this.descEl.className = 'form-text';
+    this.descEl.className = rendererConfig.classes.description;
   }
 
   connectedCallback() {
@@ -266,9 +268,9 @@ export class VsfFormItem extends HTMLElement {
 
     // 1. Setup Label
     if (label) {
-      this.labelEl.setAttribute('class', 'form-label');
+      this.labelEl.setAttribute('class', rendererConfig.classes.label);
       if (id) this.labelEl.setAttribute('for', id);
-      this.labelEl.innerHTML = `${label}${required ? '<span class="text-danger">*</span>' : ''}`;
+      this.labelEl.innerHTML = `${label}${required ? `<span class="${rendererConfig.classes.textDanger}">*</span>` : ''}`;
       if (!this.contains(this.labelEl)) {
         this.prepend(this.labelEl);
       }
@@ -294,6 +296,7 @@ export class VsfAdditionalProperties extends HTMLElement {
   }
 
   connectedCallback() {
+    this.style.display = 'block';
     const title = this.getAttribute('title');
     const elementId = this.getAttribute('element-id');
     const addText = this.getAttribute('add-text') || 'Add Property';
@@ -314,18 +317,18 @@ export class VsfAdditionalProperties extends HTMLElement {
     }
 
     // 2. Items Container (The renderer will append items here, so we just ensure it exists)
-    let itemsContainer = this.querySelector('.js_ap-items');
+    let itemsContainer = this.querySelector(`.${rendererConfig.triggers.additionalPropertyItems}`);
     if (!itemsContainer) {
       itemsContainer = document.createElement('div');
-      itemsContainer.className = 'ap-items js_ap-items';
+      itemsContainer.className = `${rendererConfig.classes.additionalPropertiesItems} ${rendererConfig.triggers.additionalPropertyItems}`;
       this.appendChild(itemsContainer);
     }
 
     // 3. Add Button
-    let btn = this.querySelector('.js_btn-add-ap');
+    let btn = this.querySelector(`.${rendererConfig.triggers.addAdditionalProperty}`);
     if (!btn) {
       btn = document.createElement('button');
-      btn.className = 'btn btn-sm btn-outline-secondary mt-2 btn-add-ap js_btn-add-ap';
+      btn.className = `${rendererConfig.classes.buttonSecondary} btn-add-ap ${rendererConfig.triggers.addAdditionalProperty}`;
       btn.setAttribute('type', 'button');
       this.appendChild(btn);
     }
@@ -342,23 +345,24 @@ export class VsfArray extends HTMLElement {
   }
 
   connectedCallback() {
+    this.style.display = 'block';
     const elementId = this.getAttribute('element-id');
     const addText = this.getAttribute('add-text') || 'Add Item';
 
     // 1. Items Container
-    let itemsContainer = this.querySelector('.js_array-items');
+    let itemsContainer = this.querySelector(`.${rendererConfig.triggers.arrayItems}`);
     if (!itemsContainer) {
       itemsContainer = document.createElement('div');
-      itemsContainer.className = 'array-items js_array-items';
+      itemsContainer.className = `${rendererConfig.classes.arrayItems} ${rendererConfig.triggers.arrayItems}`;
       if (elementId) itemsContainer.id = `${elementId}-items`;
       this.prepend(itemsContainer);
     }
 
     // 2. Add Button
-    let btn = this.querySelector('.js_btn-add-array-item');
+    let btn = this.querySelector(`.${rendererConfig.triggers.addArrayItem}`);
     if (!btn) {
       btn = document.createElement('button');
-      btn.className = 'btn btn-sm btn-outline-primary mt-2 btn-add-array-item js_btn-add-array-item';
+      btn.className = `${rendererConfig.classes.buttonPrimary} btn-add-array-item ${rendererConfig.triggers.addArrayItem}`;
       btn.setAttribute('type', 'button');
       this.appendChild(btn);
     }
@@ -378,14 +382,14 @@ export class VsfArrayItem extends HTMLElement {
 
   connectedCallback() {
     this.style.display = 'flex';
-    this.classList.add('gap-2', 'mb-2', 'align-items-start');
+    this.classList.add(...rendererConfig.classes.arrayItemRow.split(' '), rendererConfig.triggers.arrayItemRow);
 
     // 1. Content Wrapper (for the item itself)
     // We move existing children (the rendered item) into a wrapper if not already there
-    let contentWrapper = this.querySelector('.flex-grow-1');
+    let contentWrapper = this.querySelector(`.${rendererConfig.triggers.arrayItemContent}`);
     if (!contentWrapper) {
       contentWrapper = document.createElement('div');
-      contentWrapper.className = 'flex-grow-1';
+      contentWrapper.className = `${rendererConfig.classes.arrayItemContent} ${rendererConfig.triggers.arrayItemContent}`;
       while (this.firstChild) {
         contentWrapper.appendChild(this.firstChild);
       }
@@ -393,10 +397,10 @@ export class VsfArrayItem extends HTMLElement {
     }
 
     // 2. Remove Button
-    let btn = this.querySelector('.js_btn-remove-item');
+    let btn: HTMLButtonElement | null = this.querySelector(`.${rendererConfig.triggers.removeArrayItem}`);
     if (!btn) {
       btn = document.createElement('button');
-      btn.className = 'btn btn-sm btn-outline-danger btn-remove-item js_btn-remove-item';
+      btn.className = `${rendererConfig.classes.buttonDanger} btn-remove-item ${rendererConfig.triggers.removeArrayItem}`;
       btn.setAttribute('type', 'button');
       // Align with input height or label
       btn.style.marginTop = '2rem'; 
@@ -412,15 +416,84 @@ export class VsfOneOf extends HTMLElement {
   }
 
   connectedCallback() {
+    this.style.display = 'block';
     const elementId = this.getAttribute('element-id');
     
     // 1. Content Container
     let content = this.querySelector('.oneof-container');
     if (!content) {
       content = document.createElement('div');
-      content.className = 'oneof-container ps-3 border-start';
+      content.className = rendererConfig.classes.oneOfContainer;
       if (elementId) content.id = `${elementId}__oneof_content`;
       this.appendChild(content);
+    }
+  }
+}
+
+export class VsfAdditionalPropertyItem extends HTMLElement {
+  static get observedAttributes() {
+    return ['key-value', 'key-id', 'remove-text'];
+  }
+
+  connectedCallback() {
+    this.style.display = 'flex';
+    this.classList.add(...rendererConfig.classes.additionalPropertyItem.split(' '), rendererConfig.triggers.additionalPropertyRow);
+
+    const keyValue = this.getAttribute('key-value') || '';
+    const keyId = this.getAttribute('key-id');
+    const removeText = this.getAttribute('remove-text') || 'X';
+
+    // 1. Key Container
+    let keyContainer = this.querySelector(`.${rendererConfig.triggers.apKeyContainer}`);
+    if (!keyContainer) {
+      keyContainer = document.createElement('div');
+      keyContainer.className = `${rendererConfig.classes.apKeyContainer} ${rendererConfig.triggers.apKeyContainer}`;
+      
+      const label = document.createElement('label');
+      label.className = rendererConfig.classes.labelSmall;
+      label.textContent = 'Key';
+      if (keyId) label.htmlFor = keyId;
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = `${rendererConfig.classes.inputSmall} ap-key ${rendererConfig.triggers.additionalPropertyKey}`;
+      input.placeholder = 'Key';
+      input.value = keyValue;
+      // Initialize data-original-key for tracking renames (used in events.ts)
+      input.setAttribute('data-original-key', keyValue);
+      if (keyId) input.id = keyId;
+
+      keyContainer.appendChild(label);
+      keyContainer.appendChild(input);
+      
+      this.prepend(keyContainer);
+    }
+
+    // 2. Remove Button
+    let btn: HTMLButtonElement | null = this.querySelector(`.${rendererConfig.triggers.removeAdditionalProperty}`);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = `${rendererConfig.classes.buttonDanger} btn-remove-ap ${rendererConfig.triggers.removeAdditionalProperty}`;
+      btn.setAttribute('type', 'button');
+      this.appendChild(btn);
+    }
+    btn.textContent = removeText;
+
+    // 3. Value Wrapper
+    // Wrap everything that isn't key or button (the value content passed as children)
+    let valueWrapper = this.querySelector(`.${rendererConfig.triggers.apValueWrapper}`);
+    if (!valueWrapper) {
+      valueWrapper = document.createElement('div');
+      valueWrapper.className = `${rendererConfig.classes.apValueWrapper} ${rendererConfig.triggers.apValueWrapper}`;
+      
+      Array.from(this.childNodes).forEach(node => {
+        if (node !== keyContainer && node !== btn && node !== valueWrapper) {
+          valueWrapper!.appendChild(node);
+        }
+      });
+      
+      // Place wrapper between key and button
+      this.insertBefore(valueWrapper, btn);
     }
   }
 }
@@ -436,3 +509,4 @@ if (!customElements.get('vsf-additional-properties')) customElements.define('vsf
 if (!customElements.get('vsf-array')) customElements.define('vsf-array', VsfArray);
 if (!customElements.get('vsf-array-item')) customElements.define('vsf-array-item', VsfArrayItem);
 if (!customElements.get('vsf-oneof')) customElements.define('vsf-oneof', VsfOneOf);
+if (!customElements.get('vsf-additional-property-item')) customElements.define('vsf-additional-property-item', VsfAdditionalPropertyItem);

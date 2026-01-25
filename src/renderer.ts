@@ -85,10 +85,18 @@ export function renderNode(
     context = activeContext;
     node = arg1 as FormNode;
     path = arg2 as string;
-    headless = arg3 as boolean;
-    // In legacy signature: renderNode(node, path, headless, dataPath)
-    // arg4 corresponds to dataPath
-    dataPath = typeof arg4 === 'string' ? arg4 : "";
+    
+    // Handle legacy signature variations: renderNode(node, path, headless?, dataPath?)
+    if (typeof arg3 === 'string') {
+      headless = false;
+      dataPath = arg3;
+    } else if (typeof arg3 === 'boolean') {
+      headless = arg3;
+      dataPath = typeof arg4 === 'string' ? arg4 : "";
+    } else {
+      headless = false;
+      dataPath = typeof arg4 === 'string' ? arg4 : "";
+    }
   }
 
   const prevContext = activeContext;
@@ -145,7 +153,21 @@ export function renderNode(
     }
     case "boolean": return domRenderer.renderBoolean(node, elementId);
     case "object": return renderObject(context, node, path, elementId, headless, dataPath);
-    case "array": return domRenderer.renderArray(node, elementId);
+    case "array": {
+      const arrayWrapper = domRenderer.renderArray(node, elementId);
+      // Render existing items if data is present
+      if (Array.isArray(node.defaultValue) && node.items) {
+        node.defaultValue.forEach((itemData: any, index: number) => {
+          const itemNode = hydrateNodeWithData(node.items!, itemData);
+          itemNode.title = itemNode.title || `Item ${index + 1}`;
+          const itemPath = `${elementId}.${index}`;
+          const itemDataPath = `${dataPath}/${index}`;
+          const renderedItem = renderNode(context, itemNode, itemPath, false, itemDataPath);
+          arrayWrapper.appendChild(domRenderer.renderArrayItem(renderedItem));
+        });
+      }
+      return arrayWrapper;
+    }
     case "null": return domRenderer.renderNull(node);
     default: return domRenderer.renderUnsupported(node);
   }
@@ -182,8 +204,17 @@ export function renderObject(
     context = activeContext;
     node = arg1 as FormNode;
     elementId = arg2 as string;
-    headless = arg3 as boolean;
-    dataPath = arg4 as string;
+    
+    if (typeof arg3 === 'string') {
+      headless = false;
+      dataPath = arg3;
+    } else if (typeof arg3 === 'boolean') {
+      headless = arg3;
+      dataPath = typeof arg4 === 'string' ? arg4 : "";
+    } else {
+      headless = false;
+      dataPath = typeof arg4 === 'string' ? arg4 : "";
+    }
   }
 
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
@@ -282,6 +313,8 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
     if (isValid) {
       newNode.defaultValue = data;
     }
+  } else if (newNode.type === 'array' && Array.isArray(data)) {
+    newNode.defaultValue = data;
   }
   
   return newNode;

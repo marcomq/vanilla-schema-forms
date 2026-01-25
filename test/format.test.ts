@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseSchema } from '../src/parser';
-import { renderNode, RenderContext } from '../src/renderer';
+import { renderNode } from '../src/renderer';
+import { RenderContext } from '../src/types';
 import { Store } from '../src/state';
 import { CONFIG } from '../src/config';
 import { JSONSchema } from 'json-schema-to-ts';

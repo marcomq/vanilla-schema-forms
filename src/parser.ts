@@ -26,6 +26,7 @@ export interface FormNode {
   maximum?: number;
   pattern?: string;
   format?: string;
+  readOnly?: boolean;
   // ... other properties we might need for rendering
 }
 
@@ -157,6 +158,7 @@ export function transformSchemaToFormNode(
     maximum: schemaObj.maximum,
     pattern: schemaObj.pattern,
     format: schemaObj.format,
+    readOnly: schemaObj.readOnly,
   };
 
   // Handle oneOf

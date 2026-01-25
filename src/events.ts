@@ -4,6 +4,7 @@ import { renderNode, findCustomRenderer, hydrateNodeWithData } from "./renderer"
 import { generateDefaultData } from "./form-data-reader";
 import { validateData } from "./validator";
 import { domRenderer } from "./dom-renderer";
+import { rendererConfig } from "./dom-renderer";
 
 export function attachInteractivity(context: RenderContext, container: HTMLElement) {
   setupVisibilityHandlers(container);
@@ -33,7 +34,7 @@ function setupVisibilityHandlers(container: HTMLElement) {
 
 function setupStoreIntegration(context: RenderContext, container: HTMLElement) {
   // Initialize data-original-key for AP keys to track renames
-  container.querySelectorAll('.js_ap-key').forEach(el => {
+  container.querySelectorAll(`.${rendererConfig.triggers.additionalPropertyKey}`).forEach(el => {
     const input = el as HTMLInputElement;
     input.setAttribute('data-original-key', input.value);
   });
@@ -46,7 +47,7 @@ function setupStoreIntegration(context: RenderContext, container: HTMLElement) {
     if (target.id.endsWith('__selector')) return;
 
     // Handle AP Key Rename
-    if (target.classList.contains('js_ap-key')) {
+    if (target.classList.contains(rendererConfig.triggers.additionalPropertyKey)) {
       handleApKeyRename(context, target as HTMLInputElement);
     } else {
       // Handle Value Update
@@ -97,13 +98,13 @@ function handleValueUpdate(context: RenderContext, target: HTMLInputElement | HT
 function setupOneOfHandlers(context: RenderContext, container: HTMLElement) {
   container.addEventListener('change', (e) => {
     const target = e.target as HTMLSelectElement;
-    if (target.classList.contains('js_oneof-selector')) {
+    if (target.classList.contains(rendererConfig.triggers.oneOfSelector)) {
       handleOneOfChange(context, target);
     }
   });
   
   // Initialize OneOfs
-  container.querySelectorAll('.js_oneof-selector').forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
+  container.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
 }
 
 function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
@@ -162,13 +163,13 @@ function setupActionHandlers(context: RenderContext, container: HTMLElement) {
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     
-    if (target.classList.contains('js_btn-add-array-item')) {
+    if (target.classList.contains(rendererConfig.triggers.addArrayItem)) {
       handleArrayAddItem(context, target);
-    } else if (target.classList.contains('js_btn-remove-item')) {
+    } else if (target.classList.contains(rendererConfig.triggers.removeArrayItem)) {
       handleArrayRemoveItem(context, target, container);
-    } else if (target.classList.contains('js_btn-add-ap')) {
+    } else if (target.classList.contains(rendererConfig.triggers.addAdditionalProperty)) {
       handleApAddItem(context, target);
-    } else if (target.classList.contains('js_btn-remove-ap')) {
+    } else if (target.classList.contains(rendererConfig.triggers.removeAdditionalProperty)) {
       handleApRemoveItem(context, target, container);
     }
   });
@@ -193,7 +194,7 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       // Initialize OneOfs in the new item
       const newItem = container!.lastElementChild;
       if (newItem) {
-        newItem.querySelectorAll('.js_oneof-selector').forEach(el => {
+        newItem.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
           el.dispatchEvent(new Event('change', { bubbles: true }));
         });
       }
@@ -211,7 +212,7 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
 }
 
 function handleArrayRemoveItem(context: RenderContext, target: HTMLElement, container: HTMLElement) {
-  const row = target.closest('.js_array-item-row');
+  const row = target.closest(`.${rendererConfig.triggers.arrayItemRow}`);
   const arrayContainer = row?.parentElement;
   if (row && arrayContainer) {
     const index = Array.from(arrayContainer.children).indexOf(row);
@@ -237,7 +238,7 @@ function handleArrayRemoveItem(context: RenderContext, target: HTMLElement, cont
 function handleApAddItem(context: RenderContext, target: HTMLElement) {
   const elementId = target.getAttribute('data-id');
   const node = context.nodeRegistry.get(elementId!);
-  const container = target.parentElement?.querySelector('.js_ap-items');
+  const container = target.parentElement?.querySelector(`.${rendererConfig.triggers.additionalPropertyItems}`);
   
   if (node && container) {
     const index = container.children.length;
@@ -270,11 +271,11 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     const newRow = container.lastElementChild;
     if (newRow) {
       // Initialize data-original-key for the new key input to support immediate renaming
-      const newKeyInput = newRow.querySelector('.js_ap-key') as HTMLInputElement;
+      const newKeyInput = newRow.querySelector(`.${rendererConfig.triggers.additionalPropertyKey}`) as HTMLInputElement;
       if (newKeyInput) {
         newKeyInput.setAttribute('data-original-key', newKeyInput.value);
       }
-      newRow.querySelectorAll('.js_oneof-selector').forEach(el => {
+      newRow.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       });
     }
@@ -292,14 +293,14 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
 }
 
 function handleApRemoveItem(context: RenderContext, target: HTMLElement, container: HTMLElement) {
-  const row = target.closest('.js_ap-row');
+  const row = target.closest(`.${rendererConfig.triggers.additionalPropertyRow}`);
   // Note: Removing APs from store is tricky because we need the Key.
   // The readFormData logic handles this by rescraping, but for pure reactivity we'd need to know the key.
   // For now, we rely on the fact that the DOM removal stops it from being read, 
   // BUT since we are decoupling, we should ideally remove it from store.
   // Implementation: Find the key input in the row.
-  const keyInput = row?.querySelector('.js_ap-key') as HTMLInputElement;
-  const apElement = target.closest('.js_additional-properties');
+  const keyInput = row?.querySelector(`.${rendererConfig.triggers.additionalPropertyKey}`) as HTMLInputElement;
+  const apElement = target.closest(`.${rendererConfig.triggers.additionalPropertiesWrapper}`);
   const elementId = apElement?.getAttribute('element-id');
 
   if (keyInput && keyInput.value) {
@@ -391,7 +392,7 @@ function updateAPIndices(container: HTMLElement, startIndex: number, baseId: str
   const rows = Array.from(container.children) as HTMLElement[];
   for (let i = startIndex; i < rows.length; i++) {
     const row = rows[i];
-    const keyInput = row.querySelector('.js_ap-key');
+    const keyInput = row.querySelector(`.${rendererConfig.triggers.additionalPropertyKey}`);
     if (keyInput && keyInput.id) {
        const match = keyInput.id.match(/__ap_(\d+)_key$/);
        if (match) {
@@ -416,14 +417,14 @@ function updateAPIndices(container: HTMLElement, startIndex: number, baseId: str
   }
 }
 
-function validateAndShowErrors(context: RenderContext) {
+export function validateAndShowErrors(context: RenderContext) {
   if (!context.rootNode) return;
   const data = context.store.get();
   const errors = validateData(data);
   
   // Clear existing errors
-  document.querySelectorAll('.validation-error').forEach(el => el.remove());
-  document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  document.querySelectorAll(`.${rendererConfig.triggers.validationError}`).forEach(el => el.remove());
+  document.querySelectorAll(`.${rendererConfig.classes.invalid}`).forEach(el => el.classList.remove(rendererConfig.classes.invalid));
 
   if (errors) {
     errors.forEach(err => {
@@ -431,9 +432,9 @@ function validateAndShowErrors(context: RenderContext) {
       if (elementId) {
         const el = document.getElementById(elementId);
         if (el) {
-          el.classList.add('is-invalid');
+          el.classList.add(rendererConfig.classes.invalid);
           const msg = document.createElement('div');
-          msg.className = 'validation-error text-red-500 text-sm mt-1';
+          msg.className = `${rendererConfig.classes.error} ${rendererConfig.triggers.validationError}`;
           msg.textContent = err.message || "Invalid value";
           el.parentElement?.appendChild(msg);
         }

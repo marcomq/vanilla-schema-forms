@@ -5,6 +5,8 @@ Vanilla Schema Forms is a web-based application that dynamically generates HTML 
 ## Features
 
 -   **Dynamic Form Generation**: Automatically creates HTML forms based on JSON Schema definitions.
+-   **Web Components**: Uses standard Custom Elements (`<vsf-input>`, `<vsf-select>`, etc.) for encapsulated and replaceable UI logic.
+-   **Hyperscript Rendering**: Lightweight DOM generation using a hyperscript helper, avoiding innerHTML injection risks.
 -   **Schema Dereferencing**: Resolves `$ref` pointers within your JSON Schema using `@apidevtools/json-schema-ref-parser`.
 -   **Type-Safe Development**: Written in TypeScript for robust and maintainable code.
 -   **Modern Tooling**: Utilizes Vite for development and bundling, providing a fast and efficient workflow.
@@ -22,7 +24,7 @@ The application follows a clear pipeline to transform a JSON Schema into an inte
 1.  **Schema Loading**: The `index.html` file (located in the project root) is the entry point. It loads the main application script (`src/index.ts`).
 2.  **Schema Fetching & Parsing**: The `src/index.ts` script fetches the `schema.json` file. It then uses `src/parser.ts` to parse this schema.
 3.  **Schema Dereferencing and Transformation**: `src/parser.ts` utilizes the `@apidevtools/json-schema-ref-parser` library to dereference any `$ref` pointers in the JSON Schema. It then transforms the raw JSON Schema into a simplified, UI-friendly `FormNode` tree structure.
-4.  **Form Rendering**: `src/index.ts` passes the `FormNode` tree to `src/renderer.ts`, which is responsible for generating and injecting the corresponding HTML form elements into the DOM.
+4.  **Form Rendering**: `src/index.ts` passes the `FormNode` tree to `src/renderer.ts`. This orchestrator delegates the actual DOM creation to `src/dom-renderer.ts`, which utilizes Web Components defined in `src/web-components.ts` to produce a modular and customizable UI.
 5.  **Live JSON Output**: As the user interacts with the generated form, the application dynamically updates a live JSON output, reflecting the current state of the form data.
 
 ## Validation
@@ -55,6 +57,8 @@ In addition to standard JSON Schema formats (email, date-time, etc.), the valida
 ├── vite.config.ts        # Vite configuration (including polyfills for Node.js modules)
 └── src/
     ├── config.ts         # Configuration for sorting, visibility, and heuristics
+    ├── dom-renderer.ts   # DOM generation logic using hyperscript
+    ├── web-components.ts # Custom Element definitions (vsf-input, etc.)
     ├── i18n.ts           # Text overrides and internationalization mappings
     ├── index.ts          # Main application logic, orchestrates parsing and rendering
     ├── form-data-reader.ts # Logic to read data back from the DOM
@@ -62,7 +66,6 @@ In addition to standard JSON Schema formats (email, date-time, etc.), the valida
     ├── parser.ts         # Parses JSON Schema, dereferences, and transforms to FormNode tree
     ├── parser.test.ts    # Unit tests for the parser
     └── renderer.ts       # Renders the FormNode tree into HTML form elements
-    └── templates.ts      # HTML template strings for UI components
 ```
 
 ## Setup
