@@ -62,7 +62,13 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   
   // Register node for potential lookups
   context.nodeRegistry.set(elementId, node);
-  context.dataPathRegistry.set(dataPath, elementId);
+  // Do not register headless nodes in the dataPathRegistry.
+  // Headless nodes (like oneOf variants) share a dataPath with their parent wrapper.
+  // If they register, they overwrite the parent's entry, breaking validation message mapping,
+  // because the headless node itself has no validation placeholder.
+  if (!headless) {
+    context.dataPathRegistry.set(dataPath, elementId);
+  }
   context.elementIdToDataPath.set(elementId, dataPath);
 
   // 1. Custom Renderers
@@ -132,7 +138,7 @@ export function renderObject(context: RenderContext, node: FormNode, _path: stri
         valueNode.key = undefined;
 
         const apId = `${elementId}.__ap_${apIndex}`;
-        const apDataPath = dataPath ? `${dataPath}/${key}` : key;
+        const apDataPath = `${dataPath}/__ap_${apIndex}`;
 
         const valueNodeRendered = renderNode(context, valueNode, apId, false, apDataPath);
         

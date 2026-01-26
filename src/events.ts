@@ -473,10 +473,9 @@ function findElementIdForPath(context: RenderContext, ajvPath: string): string |
         const rowElementId = context.dataPathRegistry.get(partialPath);
         
         if (rowElementId) {
-          // Heuristic: The AP Value wrapper ID usually ends in ".Value". 
-          // The corresponding Key Input ID is the row ID + "_key".
-          // We strip ".Value" to get the row ID.
-          const rowId = rowElementId.replace(/\.Value$/, '');
+          // The rowElementId is the ID of the value node (e.g. "...__ap_0.Value" or "...__ap_0.DefaultRoute").
+          // The corresponding Key Input ID is the base row ID + "_key".
+          const rowId = rowElementId.substring(0, rowElementId.lastIndexOf('.'));
           const keyInputId = `${rowId}_key`;
           const keyInput = document.getElementById(keyInputId) as HTMLInputElement;
           

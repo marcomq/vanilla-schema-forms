@@ -80,9 +80,10 @@ export const rendererConfig = {
 export const domRenderer: TemplateRenderer<Node> = {
   renderFieldWrapper: (node: FormNode, elementId: string, input: Node, className?: string): Node => {
     const children: Node[] = [];
+    const forId = (node as any)._inputId || elementId;
 
     if (node.title) {
-      children.push(h(rendererConfig.elements.label, { className: rendererConfig.classes.label, for: elementId }, node.title, node.required ? h('span', { className: rendererConfig.classes.textDanger }, '*') : ''));
+      children.push(h(rendererConfig.elements.label, { className: rendererConfig.classes.label, for: forId }, node.title, node.required ? h('span', { className: rendererConfig.classes.textDanger }, '*') : ''));
     }
 
     children.push(input);
@@ -275,8 +276,8 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     const selectContainer = h(rendererConfig.elements.oneOf, { 'data-element-id': elementId }, selectEl, contentContainer);
     
-    const wrapperNode = { ...node, title: getUiText("type_variant", "Type / Variant"), description: undefined, required: false };
-    return domRenderer.renderFieldWrapper(wrapperNode, `${elementId}__selector`, selectContainer, rendererConfig.classes.oneOfWrapper);
+    const wrapperNode = { ...node, title: getUiText("type_variant", "Type / Variant"), description: undefined, required: false, _inputId: `${elementId}__selector` };
+    return domRenderer.renderFieldWrapper(wrapperNode, elementId, selectContainer, rendererConfig.classes.oneOfWrapper);
   },
   renderArray: (node: FormNode, elementId: string): Node => {
     const itemsContainer = h('div', {
