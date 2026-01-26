@@ -129,6 +129,9 @@ example/vanilla-schema-forms.umd.js
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+.DS_Store
+dist-pages/playground
+
 # yarn v3
 .pnp.*
 .yarn/*
