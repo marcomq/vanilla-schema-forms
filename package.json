@@ -19,11 +19,12 @@
   "scripts": {
     "dev": "vite",
     "prebuild": "tsc --noEmit",
-    "build": "vite build --config vite.lib.config.ts",
+    "build": "vite build --config vite.lib.config.ts && cp dist/vanilla-schema-forms.umd.js example/vanilla-schema-forms.umd.js",
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "playwright test",
-    "playground": "vite --open playground/"
+    "playground": "vite --open playground/",
+    "test:watch": "concurrently \"npm:test -- --watch\" \"npx nodemon --watch src --watch playwright-tests -e ts,html,json --exec 'npm run test:e2e'\""
   },
   "peerDependencies": {
     "ajv": "^8.12.0",
@@ -46,8 +47,10 @@
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@types/node": "^25.0.10",
+    "concurrently": "^8.2.2",
     "happy-dom": "^20.3.9",
     "json-schema-to-ts": "^3.1.1",
+    "nodemon": "^3.1.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-dts": "^4.5.4",

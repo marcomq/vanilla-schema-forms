@@ -1,6 +1,6 @@
 import { RenderContext, ErrorObject } from "./types";
 import { FormNode } from "./parser";
-import { renderNode, findCustomRenderer, hydrateNodeWithData } from "./renderer";
+import { renderNode, findCustomRenderer } from "./renderer";
 import { generateDefaultData } from "./form-data-reader";
 import { validateData } from "./validator";
 import { domRenderer } from "./dom-renderer";

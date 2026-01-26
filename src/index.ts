@@ -5,6 +5,7 @@ import { generateDefaultData } from "./form-data-reader";
 import { Store } from "./state";
 import { CONFIG } from "./config";
 import { domRenderer, rendererConfig } from "./dom-renderer";
+import { validateAndShowErrors } from "./events";
 
 export { setConfig, resetConfig } from "./config";
 export { setI18n, resetI18n } from "./i18n";
@@ -14,6 +15,7 @@ export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
 export { h } from "./hyperscript";
 export { domRenderer, rendererConfig };
+export { validateAndShowErrors };
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 
@@ -102,7 +104,6 @@ export async function init(containerId: string, schemaOrUrl: string | any, initi
       setData,
       validate: async () => {
         // This validates the data and displays errors in the form UI.
-        const { validateAndShowErrors } = await import("./events");
         return validateAndShowErrors(context);
       }
     };
