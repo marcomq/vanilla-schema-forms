@@ -49,7 +49,15 @@ describe('Integration Tests', () => {
     expect(rootNode).toBeDefined();
 
     // 2. Render
-    renderForm(rootNode, container, store, CONFIG);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
     
     // Verify HTML structure
     const streetInput = document.getElementById('root.billing.street') as HTMLInputElement;
@@ -95,7 +103,15 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container, store, CONFIG);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
 
     // Verify default selection (Credit Card)
     const selector = document.getElementById('root.payment__selector') as HTMLSelectElement;
@@ -150,7 +166,15 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container, store, CONFIG);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
 
     // Initial state: empty array
     const initialData = generateDefaultData(rootNode);
@@ -198,7 +222,15 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container, store, CONFIG);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
 
     // Verify HTML structure
     const inputA = document.getElementById('root.propA') as HTMLInputElement;
@@ -236,7 +268,15 @@ describe('Integration Tests', () => {
     };
 
     const rootNode = await parseSchema(schema as any);
-    renderForm(rootNode, container, store, CONFIG);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
 
     // Verify selector exists
     const selector = document.getElementById('root__selector') as HTMLSelectElement;

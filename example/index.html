@@ -25,11 +25,12 @@
     </div>
 
     <script type="module">
-        import { initLinked, setCustomRenderers } from '../src/index.ts';
-        import { CUSTOM_RENDERERS } from './customization.js';
+        import { initLinked } from '../src/index.ts';
+        import './customization.js';
 
         // 1. Register the custom renderers (TLS toggle, Routes layout, etc.)
-        setCustomRenderers(CUSTOM_RENDERERS);
+        // is already called in customization.js, we don't need
+        // to call here setCustomRenderers(CUSTOM_RENDERERS);
 
         // 2. Initialize the form
         await initLinked("form-container", "./schema.json", "json-output");

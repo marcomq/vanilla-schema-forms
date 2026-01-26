@@ -1,4 +1,12 @@
-import { h, renderObject, renderProperties, domRenderer, setI18n, setConfig } from "../src/index";
+import {
+  h,
+  renderObject,
+  renderProperties,
+  domRenderer,
+  setI18n,
+  setConfig,
+  setCustomRenderers,
+} from "../src/index";
 
 // Apply global I18N overrides
 setI18n({
@@ -59,13 +67,10 @@ export const tlsRenderer = {
  * It handles dynamic keys for additional properties and provides a custom UI for adding/removing routes.
  */
 export const routesRenderer = {
-  render: (node, _path, elementId, dataPath, context) => {
-    const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
-    // Hide title (null). Key generation is handled by getDefaultKey below.
-    const ap = domRenderer.renderAdditionalProperties(node, elementId, { title: null });
-    const oneOf = domRenderer.renderOneOf(node, elementId);
-    const content = domRenderer.renderFragment([props, ap, oneOf]);
-    return domRenderer.renderObject(node, elementId, content);
+  render: (node, path, elementId, dataPath, context) => {
+    return renderObject(context, node, path, elementId, false, dataPath, {
+      additionalProperties: { title: null }
+    });
   },
   getDefaultKey: (index) => `Route ${index + 1}`,
   renderAdditionalPropertyRow: (valueHtml, defaultKey, uniqueId) => {
@@ -115,3 +120,6 @@ export const CUSTOM_RENDERERS = {
     }
   }
 };
+
+// 4. Apply the renderers
+setCustomRenderers(CUSTOM_RENDERERS);

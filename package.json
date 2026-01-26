@@ -1,21 +1,36 @@
 {
   "name": "vanilla-schema-forms",
   "version": "0.1.0",
-  "description": "",
+  "description": "A JSON schema driven form generator for vanilla JS/TS applications.",
+  "type": "module",
+  "main": "./dist/vanilla-schema-forms.umd.js",
+  "module": "./dist/vanilla-schema-forms.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vanilla-schema-forms.es.js",
+      "require": "./dist/vanilla-schema-forms.umd.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "prebuild": "tsc --noEmit",
+    "build": "vite build --config vite.lib.config.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "playwright test",
     "playground": "vite --open playground/"
   },
+  "peerDependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^3.0.0"
+  },
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^15.1.3",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
-    "json-schema-to-ts": "^3.1.1",
-    "vitest": "^4.0.16"
+    "@apidevtools/json-schema-ref-parser": "^15.2.2"
   },
   "repository": {
     "type": "git",
@@ -24,17 +39,19 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/marcomq/vanilla-schema-forms/issues"
   },
   "homepage": "https://github.com/marcomq/vanilla-schema-forms#readme",
   "devDependencies": {
-    "@types/node": "^25.0.5",
     "@playwright/test": "^1.49.1",
-    "happy-dom": "^20.1.0",
+    "@types/node": "^25.0.10",
+    "happy-dom": "^20.3.9",
+    "json-schema-to-ts": "^3.1.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-node-polyfills": "^0.24.0"
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-node-polyfills": "^0.25.0",
+    "vitest": "^4.0.18"
   }
 }

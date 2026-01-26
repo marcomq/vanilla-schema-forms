@@ -1,8 +1,7 @@
 import { FormNode } from "./parser";
-import { Store } from "./state";
 import { RenderContext, CustomRenderer } from "./types";
 import { attachInteractivity } from "./events";
-import { domRenderer } from "./dom-renderer";
+import { domRenderer, rendererConfig } from "./dom-renderer";
 
 export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
   "mode": {
@@ -23,7 +22,7 @@ export function renderForm(formContainer: HTMLElement, context: RenderContext) {
   formContainer.innerHTML = '';
   formContainer.appendChild(form);
   
-  attachInteractivity(context, formContainer);
+  attachInteractivity(context, form as HTMLElement);
 }
 
 export function findCustomRenderer(context: RenderContext, elementId: string): CustomRenderer<Node> | undefined {
@@ -113,9 +112,43 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
 }
 
-export function renderObject(context: RenderContext, node: FormNode, _path: string, elementId: string, headless: boolean, dataPath: string): Node {
+export function renderObject(context: RenderContext, node: FormNode, _path: string, elementId: string, headless: boolean, dataPath: string, options?: { additionalProperties?: { title?: string | null, keyPattern?: string } }): Node {
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
-  const ap = domRenderer.renderAdditionalProperties(node, elementId);
+  const ap = domRenderer.renderAdditionalProperties(node, elementId, options?.additionalProperties);
+  
+  // Hydrate existing Additional Properties
+  if (node.additionalProperties && node.defaultValue && typeof node.defaultValue === 'object') {
+    const container = (ap as Element).querySelector(`.${rendererConfig.triggers.additionalPropertyItems}`);
+    if (container) {
+      const definedProps = new Set(node.properties ? Object.keys(node.properties) : []);
+      let apIndex = 0;
+      
+      Object.keys(node.defaultValue).forEach((key) => {
+        if (definedProps.has(key)) return;
+
+        const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string' } as FormNode;
+        const valueNode = hydrateNodeWithData(valueSchema, node.defaultValue[key]);
+        valueNode.title = key;
+        valueNode.key = undefined;
+
+        const apId = `${elementId}.__ap_${apIndex}`;
+        const apDataPath = dataPath ? `${dataPath}/${key}` : key;
+
+        const valueNodeRendered = renderNode(context, valueNode, apId, false, apDataPath);
+        
+        const uniqueId = `${apId}_key`;
+        const renderer = findCustomRenderer(context, elementId);
+        
+        const rowNode = renderer?.renderAdditionalPropertyRow 
+          ? renderer.renderAdditionalPropertyRow(valueNodeRendered, key, uniqueId)
+          : domRenderer.renderAdditionalPropertyRow(valueNodeRendered, key, uniqueId);
+          
+        container.appendChild(rowNode);
+        apIndex++;
+      });
+    }
+  }
+
   const oneOf = domRenderer.renderOneOf(node, elementId);
   
   const content = domRenderer.renderFragment([props, ap, oneOf]);
@@ -176,10 +209,13 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   
   const newNode = { ...node };
 
-  if (newNode.type === 'object' && newNode.properties && typeof data === 'object' && data !== null) {
-    newNode.properties = { ...newNode.properties };
-    for (const key in newNode.properties) {
-      newNode.properties[key] = hydrateNodeWithData(newNode.properties[key], data[key]);
+  if (newNode.type === 'object' && typeof data === 'object' && data !== null) {
+    newNode.defaultValue = data;
+    if (newNode.properties) {
+      newNode.properties = { ...newNode.properties };
+      for (const key in newNode.properties) {
+        newNode.properties[key] = hydrateNodeWithData(newNode.properties[key], data[key]);
+      }
     }
   } else if (['string', 'number', 'integer', 'boolean'].includes(newNode.type)) {
     let isValid = true;

@@ -6,6 +6,7 @@ describe('transformSchemaToFormNode', () => {
     const schema = { type: 'string', title: 'My String' };
     const result = transformSchemaToFormNode(schema as any);
     expect(result).toEqual({
+      key: undefined,
       type: 'string',
       title: 'My String',
       description: "",
@@ -23,6 +24,7 @@ describe('transformSchemaToFormNode', () => {
   it('should infer title if missing', () => {
     const schema = { type: 'string' };
     const result = transformSchemaToFormNode(schema as any, 'myProp');
+    expect(result.key).toBe('myProp');
     expect(result.title).toBe('My Prop');
   });
 

@@ -1,12 +1,28 @@
 import { init, setConfig, resetConfig, resetI18n, adaptUiSchema, setCustomRenderers, setI18n, h, renderObject, renderProperties, domRenderer } from '../../src/index';
 import defaultSchema from '../schema.json';
+import defaultCustomization from '../customization.js?raw'; // ?raw supported by vite
 
 // --- Default Examples ---
 const EXAMPLES: Record<string, { schema: any, config: any, data: any }> = {
   default: {
     schema: defaultSchema,
-    config: {},
-    data: {}
+    config: defaultCustomization,
+    data: {
+      "Default Route": {
+        "batch_size": 1,
+        "concurrency": 1,
+        "input": {
+          "middlewares": [],
+          "mode": "subscribe",
+          "null": null
+        },
+        "output": {
+          "middlewares": [],
+          "mode": "consume",
+          "null": null
+        }
+      }
+    }
   },
   simple: {
     schema: {
@@ -67,7 +83,7 @@ async function loadExample(key: string) {
   let ex = EXAMPLES[key];
   
   els.schema.value = JSON.stringify(ex.schema, null, 2);
-  els.config.value = JSON.stringify(ex.config, null, 2);
+  els.config.value = typeof ex.config === 'string' ? ex.config : JSON.stringify(ex.config, null, 2);
   els.data.value = JSON.stringify(ex.data, null, 2);
   
   render();
@@ -89,15 +105,24 @@ async function render() {
       config = els.config.value ? JSON.parse(els.config.value) : {};
       console.log("json found");
     } catch {
+
+      let code = els.config.value;
+      // Support for copy-pasting from JS modules (strip imports/exports)
+      code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '');
+      code = code.replace(/export\s+default\s+/g, 'return ');
+      code = code.replace(/export\s+/g, '');
+      
       try {
         // Try as expression (wrapped in parens to ensure it's an expression, not a block, and to fail on multiple statements)
-        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', `return (${els.config.value});`);
+        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', `return (${code});`);
         config = fn(h, renderObject, renderProperties, domRenderer, setI18n, setConfig, setCustomRenderers);
+        console.log("js 1 found");
       } catch (e) {
-        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', els.config.value);
+        // code += "\nif (typeof CUSTOM_RENDERERS !== 'undefined') { setCustomRenderers(CUSTOM_RENDERERS); }";
+        const fn = new Function('h', 'renderObject', 'renderProperties', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', code);
         config = fn(h, renderObject, renderProperties, domRenderer, setI18n, setConfig, setCustomRenderers);
+        console.log("js 2 found");
       }
-      console.log("js found");
       console.log(config);
     }
   } catch (e) {

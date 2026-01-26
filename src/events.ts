@@ -65,15 +65,33 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
   
   if (oldKey !== newKey) {
     const match = target.id.match(/(.*)\.__ap_\d+_key$/);
-    if (match) {
+    if (match) { 
       const parentId = match[1];
       const path = resolvePath(parentId + ".dummy"); // Resolve parent path
       if (path) {
         path.pop(); // Remove 'dummy'
-        const parentObj = context.store.getPath(path);
-        if (parentObj && typeof parentObj === 'object') {
-          const val = parentObj[oldKey!] || {}; // Default to empty object if new
-          if (oldKey) delete parentObj[oldKey];
+        const rawParentObj = context.store.getPath(path);
+        // If the parent object doesn't exist in the store, we can't do anything.
+        // This can happen if the parent is part of an uninitialized array item.
+        if (rawParentObj !== undefined) {
+          const parentObj = { ...rawParentObj };
+          let val = parentObj[oldKey!];
+
+          // If val is undefined, it's a new key. We need to generate default data.
+          if (val === undefined) {
+            const node = context.nodeRegistry.get(parentId);
+            if (node) {
+              const valueSchema = typeof node.additionalProperties === 'object' 
+                ? node.additionalProperties 
+                : { type: 'string' } as FormNode;
+              val = generateDefaultData(valueSchema);
+            } else {
+              // Fallback if node not found, though this shouldn't happen in normal flow.
+              val = "";
+            }
+          }
+
+          if (oldKey && oldKey in parentObj) delete parentObj[oldKey];
           if (newKey) parentObj[newKey] = val;
           context.store.setPath(path, parentObj);
           target.setAttribute('data-original-key', newKey);
@@ -131,27 +149,21 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     const selectedIdx = parseInt(target.value, 10);
     let selectedNode = node.oneOf[selectedIdx];
 
-    // Preserve Data Logic
-    const storePath = resolvePath(elementId!);
-    if (storePath) {
-      const currentData = context.store.getPath(storePath);
-       if (currentData) {
-         selectedNode = hydrateNodeWithData(selectedNode, currentData);
-       }
-    }
-
     // Use the current elementId as the base path for the child option to ensure correct nesting
     const path = elementId!;
     const parentDataPath = context.elementIdToDataPath.get(elementId!) || "";
     contentContainer.innerHTML = '';
     contentContainer.appendChild(renderNode(context, selectedNode, path, true, parentDataPath));
 
-    // Update Store with new structure (merging common props + new oneOf defaults)
+    // Update Store: Replace the data for this object with the new oneOf selection's defaults.
+    // This approach does not preserve values between oneOf selections, which is the safest default
+    // and matches the integration test expectations.
+    const storePath = resolvePath(elementId!);
     if (storePath) {
       const currentData = context.store.getPath(storePath) || {};
       const newData: any = {};
       
-      // 1. Preserve Common Properties
+      // 1. Preserve Common Properties (i.e., properties that are siblings of the oneOf)
       if (node.properties) {
         for (const key in node.properties) {
           if (currentData[key] !== undefined) {
@@ -160,9 +172,8 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
         }
       }
       
-      // 2. Merge New Option Defaults (hydrated with current data to preserve overlaps)
-      const hydratedOption = hydrateNodeWithData(selectedNode, currentData);
-      const optionData = generateDefaultData(hydratedOption);
+      // 2. Generate and merge the default data for the newly selected option.
+      const optionData = generateDefaultData(selectedNode);
       
       if (typeof optionData === 'object' && optionData !== null) {
          Object.assign(newData, optionData);
@@ -209,22 +220,22 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
     const itemNodeWrapper = domRenderer.renderArrayItem(innerNode);
     container!.appendChild(itemNodeWrapper);
 
-      // Initialize OneOfs in the new item
-      const newItem = container!.lastElementChild;
-      if (newItem) {
-        newItem.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-      }
-
-    container?.dispatchEvent(new Event('change', { bubbles: true }));
-
     // Update Store: Add default value
     const path = resolvePath(elementId!) || [];
     // The new item is at the index we just calculated
     const itemPath = [...path, index];
     const defaultValue = generateDefaultData(node.items);
     context.store.setPath(itemPath, defaultValue);
+
+    // Initialize OneOfs in the new item
+    const newItem = container!.lastElementChild;
+    if (newItem) {
+      newItem.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    container?.dispatchEvent(new Event('change', { bubbles: true }));
     validateAndShowErrors(context);
   }
 }
@@ -241,8 +252,14 @@ function handleArrayRemoveItem(context: RenderContext, target: HTMLElement, cont
     row.remove();
     
     // Update Store: Remove item at index
-    const path = resolvePath(baseId) || [];
-    context.store.removePath(path);
+    const path = resolvePath(baseId);
+    if (path) {
+      const array = context.store.getPath(path) as any[] | undefined;
+      if (Array.isArray(array)) {
+        const newArray = [...array.slice(0, index), ...array.slice(index + 1)];
+        context.store.setPath(path, newArray);
+      }
+    }
 
     if (baseId) updateArrayIndices(arrayContainer as HTMLElement, index, baseId);
     container.dispatchEvent(new Event('change', { bubbles: true }));
@@ -259,7 +276,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
   if (node && container) {
     const index = container.children.length;
     const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: 'Value' } as FormNode;
-    const valueNode = { ...valueSchema, title: 'Value', key: 'Value' };
+    const valueNode = { ...valueSchema, title: 'Value', key: undefined };
     // APs are tricky for data path mapping because key is dynamic. 
     // We use a placeholder or skip validation mapping for now.
     const valueNodeRendered = renderNode(context, valueNode, `${elementId}.__ap_${index}`, false, `${context.elementIdToDataPath.get(elementId!) || ""}/__ap_${index}`);
@@ -283,6 +300,14 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
       : domRenderer.renderAdditionalPropertyRow(valueNodeRendered, defaultKey, uniqueId);
     container.appendChild(rowNode);
 
+    // Update Store: Add new property (if key is present, otherwise it waits for input)
+    // For APs, the key is dynamic. We usually wait for the user to type the key.
+    // However, if we have a defaultKey, we can set it.
+    if (defaultKey) {
+       const path = resolvePath(elementId!) || [];
+      context.store.setPath([...path, defaultKey], generateDefaultData(valueSchema));
+    }
+
     // Initialize OneOfs in the new row
     const newRow = container.lastElementChild;
     if (newRow) {
@@ -294,14 +319,6 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
       newRow.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       });
-    }
-    
-    // Update Store: Add new property (if key is present, otherwise it waits for input)
-    // For APs, the key is dynamic. We usually wait for the user to type the key.
-    // However, if we have a defaultKey, we can set it.
-    if (defaultKey) {
-       const path = resolvePath(elementId!) || [];
-      context.store.setPath([...path, defaultKey], generateDefaultData(valueSchema));
     }
     
     container.dispatchEvent(new Event('change', { bubbles: true }));
@@ -362,12 +379,6 @@ function resolvePath(elementId: string): (string | number)[] | null {
         path.push(key);
       } else {
         return null;
-      }
-      
-      // Skip 'Value' if next
-      if (i + 1 < fullParts.length && fullParts[i+1] === 'Value') {
-        i++;
-        currentIdParts.push('Value');
       }
     } else {
       const num = parseInt(part, 10);
