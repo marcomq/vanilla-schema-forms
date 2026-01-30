@@ -29,8 +29,7 @@
   },
   "peerDependencies": {
     "ajv": "^8.12.0",
-    "ajv-formats": "^3.0.0",
-    "validator-ajv-plus": "^1.0.0"
+    "ajv-formats": "^3.0.0"
   },
   "dependencies": {
     "@apidevtools/json-schema-ref-parser": "^15.2.2"
