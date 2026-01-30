@@ -6,8 +6,8 @@
     "$ref": "#/$defs/Route"
   },
   "$defs": {
-    "AmqpEndpoint": {
-      "description": "AMQP endpoint configuration, combining connection and queue details.",
+    "AmqpConfig": {
+      "description": "General AMQP connection configuration.",
       "type": "object",
       "properties": {
         "delayed_ack": {
@@ -20,7 +20,7 @@
           "type": ["string", "null"]
         },
         "no_persistence": {
-          "description": "If true, declare queues as non-durable (transient). Defaults to false.",
+          "description": "If true, declare queues as non-durable (transient). Defaults to false. Affects both Consumer (queue durability) and Publisher (message persistence).",
           "type": "boolean",
           "default": false
         },
@@ -29,14 +29,20 @@
           "type": ["string", "null"]
         },
         "prefetch_count": {
-          "description": "Number of messages to prefetch. Defaults to 100.",
+          "description": "(Consumer only) Number of messages to prefetch. Defaults to 100.",
           "type": ["integer", "null"],
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0
         },
         "queue": {
+          "description": "The AMQP queue name.",
           "type": ["string", "null"]
+        },
+        "subscribe_mode": {
+          "description": "(Consumer only) If true, act as a **Subscriber** (fan-out). Defaults to false.",
+          "type": "boolean",
+          "default": false
         },
         "tls": {
           "description": "TLS configuration.",
@@ -62,52 +68,60 @@
       "additionalProperties": false,
       "required": ["url"]
     },
-    "CommitConcurrencyMiddleware": {
-      "description": "Configuration for limiting the number of parallel commit tasks of publishers.",
+    "AwsConfig": {
       "type": "object",
       "properties": {
-        "limit": {
-          "type": "integer",
-          "format": "uint",
+        "access_key": {
+          "description": "AWS Access Key ID.",
+          "type": ["string", "null"]
+        },
+        "endpoint_url": {
+          "description": "Custom endpoint URL (e.g., for LocalStack).",
+          "type": ["string", "null"]
+        },
+        "max_messages": {
+          "description": "(Consumer only) Maximum number of messages to receive in a batch (1-10).",
+          "type": ["integer", "null"],
+          "format": "int32",
+          "maximum": 10,
+          "minimum": 1
+        },
+        "queue_url": {
+          "description": "The SQS queue URL. Required for Consumer. Optional for Publisher if `topic_arn` is set.",
+          "type": ["string", "null"]
+        },
+        "region": {
+          "description": "AWS Region (e.g., \"us-east-1\").",
+          "type": ["string", "null"]
+        },
+        "secret_key": {
+          "description": "AWS Secret Access Key.",
+          "type": ["string", "null"]
+        },
+        "session_token": {
+          "description": "AWS Session Token.",
+          "type": ["string", "null"]
+        },
+        "topic_arn": {
+          "description": "(Publisher only) The SNS topic ARN.",
+          "type": ["string", "null"]
+        },
+        "wait_time_seconds": {
+          "description": "(Consumer only) Wait time for long polling in seconds (0-20).",
+          "type": ["integer", "null"],
+          "format": "int32",
+          "maximum": 20,
           "minimum": 0
         }
       },
-      "additionalProperties": false,
-      "required": ["limit"]
-    },
-    "ConsumerMode": {
-      "type": "string",
-      "enum": ["consume", "subscribe"]
+      "additionalProperties": false
     },
     "DeadLetterQueueMiddleware": {
-      "description": "Dead-Letter Queue (DLQ) middleware configuration.",
+      "description": "Dead-Letter Queue (DLQ) middleware configuration. It is recommended that the\nendpoint is also using a retry to avoid message loss",
       "type": "object",
       "properties": {
-        "dlq_initial_interval_ms": {
-          "type": "integer",
-          "format": "uint64",
-          "default": 100,
-          "minimum": 0
-        },
-        "dlq_max_interval_ms": {
-          "type": "integer",
-          "format": "uint64",
-          "default": 5000,
-          "minimum": 0
-        },
-        "dlq_multiplier": {
-          "type": "number",
-          "format": "double",
-          "default": 2.0
-        },
-        "dlq_retry_attempts": {
-          "description": "Number of retry attempts for the DLQ send. Defaults to 3.",
-          "type": "integer",
-          "format": "uint",
-          "default": 3,
-          "minimum": 0
-        },
         "endpoint": {
+          "description": "The endpoint to send failed messages to.",
           "$ref": "#/$defs/Endpoint"
         }
       },
@@ -119,9 +133,11 @@
       "type": "object",
       "properties": {
         "sled_path": {
+          "description": "Path to the Sled database directory.",
           "type": "string"
         },
         "ttl_seconds": {
+          "description": "Time-to-live for deduplication entries in seconds.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
@@ -134,6 +150,7 @@
       "type": "object",
       "properties": {
         "delay_ms": {
+          "description": "Delay duration in milliseconds.",
           "type": "integer",
           "format": "uint64",
           "minimum": 0
@@ -153,19 +170,23 @@
           "items": {
             "$ref": "#/$defs/Middleware"
           }
-        },
-        "mode": {
-          "description": "(input only) The processing mode for the endpoint.",
-          "$ref": "#/$defs/ConsumerMode",
-          "default": "consume"
         }
       },
       "oneOf": [
         {
           "type": "object",
           "properties": {
+            "aws": {
+              "$ref": "#/$defs/AwsConfig"
+            }
+          },
+          "required": ["aws"]
+        },
+        {
+          "type": "object",
+          "properties": {
             "kafka": {
-              "$ref": "#/$defs/KafkaEndpoint"
+              "$ref": "#/$defs/KafkaConfig"
             }
           },
           "required": ["kafka"]
@@ -174,7 +195,7 @@
           "type": "object",
           "properties": {
             "nats": {
-              "$ref": "#/$defs/NatsEndpoint"
+              "$ref": "#/$defs/NatsConfig"
             }
           },
           "required": ["nats"]
@@ -183,7 +204,7 @@
           "type": "object",
           "properties": {
             "file": {
-              "type": "string"
+              "$ref": "#/$defs/FileConfig"
             }
           },
           "required": ["file"]
@@ -210,7 +231,7 @@
           "type": "object",
           "properties": {
             "amqp": {
-              "$ref": "#/$defs/AmqpEndpoint"
+              "$ref": "#/$defs/AmqpConfig"
             }
           },
           "required": ["amqp"]
@@ -219,7 +240,7 @@
           "type": "object",
           "properties": {
             "mongodb": {
-              "$ref": "#/$defs/MongoDbEndpoint"
+              "$ref": "#/$defs/MongoDbConfig"
             }
           },
           "required": ["mongodb"]
@@ -228,7 +249,7 @@
           "type": "object",
           "properties": {
             "mqtt": {
-              "$ref": "#/$defs/MqttEndpoint"
+              "$ref": "#/$defs/MqttConfig"
             }
           },
           "required": ["mqtt"]
@@ -236,17 +257,8 @@
         {
           "type": "object",
           "properties": {
-            "ibmmq": {
-              "$ref": "#/$defs/IbmMqEndpoint"
-            }
-          },
-          "required": ["ibmmq"]
-        },
-        {
-          "type": "object",
-          "properties": {
             "http": {
-              "$ref": "#/$defs/HttpEndpoint"
+              "$ref": "#/$defs/HttpConfig"
             }
           },
           "required": ["http"]
@@ -254,8 +266,17 @@
         {
           "type": "object",
           "properties": {
+            "ibmmq": {
+              "$ref": "#/$defs/IbmMqConfig"
+            }
+          },
+          "required": ["ibmmq"]
+        },
+        {
+          "type": "object",
+          "properties": {
             "zeromq": {
-              "$ref": "#/$defs/ZeroMqEndpoint"
+              "$ref": "#/$defs/ZeroMqConfig"
             }
           },
           "required": ["zeromq"]
@@ -293,6 +314,22 @@
         {
           "type": "object",
           "properties": {
+            "custom": {
+              "type": "object",
+              "properties": {
+                "config": true,
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name", "config"]
+            }
+          },
+          "required": ["custom"]
+        },
+        {
+          "type": "object",
+          "properties": {
             "null": {
               "type": "null"
             }
@@ -302,20 +339,34 @@
       ],
       "unevaluatedProperties": false
     },
-    "HttpEndpoint": {
-      "description": "HTTP endpoint configuration.",
+    "FileConfig": {
       "type": "object",
       "properties": {
-        "response_out": {
-          "description": "(Consumer only) Optional endpoint to send the response to.",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Endpoint"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "path": {
+          "description": "Path to the file.",
+          "type": "string"
+        },
+        "subscribe_mode": {
+          "description": "(Consumer only) If true, acts in **Subscriber mode** (like `tail -f`), reading new lines as they are written.\nIf false (default), acts in Consumer mode, reading lines and removing them from the file (queue behavior).",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["path"]
+    },
+    "HttpConfig": {
+      "description": "General HTTP connection configuration.",
+      "type": "object",
+      "properties": {
+        "message_id_header": {
+          "description": "(Consumer only) Header key to extract the message ID from. Defaults to \"message-id\".",
+          "type": ["string", "null"]
+        },
+        "request_timeout_ms": {
+          "description": "(Consumer only) Timeout for request-reply operations in milliseconds. Defaults to 30000ms.",
+          "type": ["integer", "null"],
+          "format": "uint64",
+          "minimum": 0
         },
         "tls": {
           "description": "TLS configuration.",
@@ -331,40 +382,58 @@
         },
         "url": {
           "description": "For consumers, the listen address (e.g., \"0.0.0.0:8080\"). For publishers, the target URL.",
-          "type": ["string", "null"]
+          "type": "string"
+        },
+        "workers": {
+          "description": "(Consumer only) Number of worker threads to use. Defaults to 0 for unlimited.",
+          "type": ["integer", "null"],
+          "format": "uint",
+          "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": ["url"]
     },
-    "IbmMqEndpoint": {
-      "description": "General IBM MQ connection configuration.",
+    "IbmMqConfig": {
+      "description": "Connection settings for the IBM MQ Queue Manager.",
       "type": "object",
       "properties": {
         "channel": {
-          "description": "The channel name.",
+          "description": "Required. Server Connection (SVRCONN) Channel name defined on the QM.",
           "type": "string"
         },
         "cipher_spec": {
-          "description": "Cipher spec for TLS connection.",
+          "description": "TLS CipherSpec (e.g., `ANY_TLS12`). Optional; required for encrypted connections.",
           "type": ["string", "null"]
         },
-        "connection_name": {
-          "description": "Comma-separated list of IBM MQ connection names (e.g., \"localhost(1414),otherhost(1414)\").",
-          "type": "string"
+        "internal_buffer_size": {
+          "description": "Internal buffer size for the channel. Defaults to 100.",
+          "type": ["integer", "null"],
+          "format": "uint",
+          "default": null,
+          "minimum": 0
+        },
+        "max_message_size": {
+          "description": "Maximum message size in bytes (default: 4MB). Optional.",
+          "type": "integer",
+          "format": "uint",
+          "default": 4194304,
+          "minimum": 0
         },
         "password": {
-          "description": "Optional password for authentication.",
+          "description": "Password for authentication. Optional; required if the channel enforces authentication.",
           "type": ["string", "null"]
         },
         "queue": {
+          "description": "Target Queue name for point-to-point messaging. Optional if `topic` is set; defaults to route name if omitted.",
           "type": ["string", "null"]
         },
         "queue_manager": {
-          "description": "The queue manager name.",
+          "description": "Required. Name of the Queue Manager to connect to (e.g., `QM1`).",
           "type": "string"
         },
         "tls": {
-          "description": "TLS configuration.",
+          "description": "TLS configuration settings (e.g., keystore paths). Optional.",
           "$ref": "#/$defs/TlsConfig",
           "default": {
             "accept_invalid_certs": false,
@@ -376,26 +445,33 @@
           }
         },
         "topic": {
+          "description": "Target Topic string for Publish/Subscribe. If set, enables **Subscriber mode** (Consumer) or publishes to a topic (Publisher). Optional if `queue` is set.",
           "type": ["string", "null"]
         },
+        "url": {
+          "description": "Required. Connection URL in `host(port)` format. Supports comma-separated list for failover (e.g., `host1(1414),host2(1414)`).",
+          "type": "string"
+        },
         "user": {
-          "description": "Optional username for authentication.",
+          "description": "Username for authentication. Optional; required if the channel enforces authentication.",
           "type": ["string", "null"]
+        },
+        "wait_timeout_ms": {
+          "description": "(Consumer only) Polling timeout in milliseconds (default: 1000ms). Optional.",
+          "type": "integer",
+          "format": "int32",
+          "default": 1000
         }
       },
       "additionalProperties": false,
-      "required": ["connection_name", "queue_manager", "channel"]
+      "required": ["url", "queue_manager", "channel"]
     },
-    "KafkaEndpoint": {
-      "description": "Kafka endpoint configuration, combining connection and topic details.",
+    "KafkaConfig": {
+      "description": "General Kafka connection configuration.",
       "type": "object",
       "properties": {
-        "brokers": {
-          "description": "Comma-separated list of Kafka broker URLs. Can also be specified using the alias 'url'.",
-          "type": "string"
-        },
         "consumer_options": {
-          "description": "Additional librdkafka consumer configuration options (key-value pairs).",
+          "description": "(Consumer only) Additional librdkafka consumer configuration options (key-value pairs).",
           "type": ["array", "null"],
           "default": null,
           "items": {
@@ -418,7 +494,7 @@
           "default": false
         },
         "group_id": {
-          "description": "Consumer group ID. Required for consumers.",
+          "description": "(Consumer only) Consumer group ID.\nIf not provided, the consumer acts in **Subscriber mode**: it generates a unique, ephemeral group ID and starts consuming from the latest offset.",
           "type": ["string", "null"]
         },
         "password": {
@@ -426,7 +502,7 @@
           "type": ["string", "null"]
         },
         "producer_options": {
-          "description": "Additional librdkafka producer configuration options (key-value pairs).",
+          "description": "(Publisher only) Additional librdkafka producer configuration options (key-value pairs).",
           "type": ["array", "null"],
           "default": null,
           "items": {
@@ -456,7 +532,12 @@
           }
         },
         "topic": {
+          "description": "The Kafka topic to produce to or consume from.",
           "type": ["string", "null"]
+        },
+        "url": {
+          "description": "Comma-separated list of Kafka broker URLs.",
+          "type": "string"
         },
         "username": {
           "description": "Optional username for SASL authentication.",
@@ -464,17 +545,40 @@
         }
       },
       "additionalProperties": false,
-      "required": ["brokers"]
+      "required": ["url"]
     },
     "MemoryConfig": {
       "type": "object",
       "properties": {
         "capacity": {
+          "description": "The capacity of the channel. Defaults to 100.",
           "type": ["integer", "null"],
           "format": "uint",
           "minimum": 0
         },
+        "enable_nack": {
+          "description": "(Consumer only) If true, enables NACK support (re-queuing), which requires cloning messages. Defaults to false.",
+          "type": "boolean",
+          "default": false
+        },
+        "request_reply": {
+          "description": "(Publisher only) If true, send() waits for a response.",
+          "type": "boolean",
+          "default": false
+        },
+        "request_timeout_ms": {
+          "description": "(Publisher only) Timeout for request-reply operations in milliseconds. Defaults to 30000ms.",
+          "type": ["integer", "null"],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "subscribe_mode": {
+          "description": "(Consumer only) If true, act as a **Subscriber** (fan-out). Defaults to false (queue).",
+          "type": "boolean",
+          "default": false
+        },
         "topic": {
+          "description": "The topic name for the in-memory channel.",
           "type": "string"
         }
       },
@@ -522,16 +626,6 @@
         {
           "type": "object",
           "properties": {
-            "commit_concurrency": {
-              "$ref": "#/$defs/CommitConcurrencyMiddleware"
-            }
-          },
-          "additionalProperties": false,
-          "required": ["commit_concurrency"]
-        },
-        {
-          "type": "object",
-          "properties": {
             "retry": {
               "$ref": "#/$defs/RetryMiddleware"
             }
@@ -558,14 +652,37 @@
           },
           "additionalProperties": false,
           "required": ["delay"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "custom": {
+              "type": "object",
+              "properties": {
+                "config": true,
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name", "config"]
+            }
+          },
+          "additionalProperties": false,
+          "required": ["custom"]
         }
       ]
     },
-    "MongoDbEndpoint": {
-      "description": "MongoDB endpoint configuration.",
+    "MongoDbConfig": {
+      "description": "General MongoDB connection configuration.",
       "type": "object",
       "properties": {
+        "change_stream": {
+          "description": "(Consumer only) If true, use Change Streams (**Subscriber mode**). Defaults to false (polling/consumer mode).",
+          "type": "boolean",
+          "default": false
+        },
         "collection": {
+          "description": "The MongoDB collection name.",
           "type": ["string", "null"]
         },
         "database": {
@@ -577,7 +694,24 @@
           "type": ["string", "null"]
         },
         "polling_interval_ms": {
-          "description": "Polling interval in milliseconds for the consumer (when not using Change Streams). Defaults to 100ms.",
+          "description": "(Consumer only) Polling interval in milliseconds for the consumer (when not using Change Streams). Defaults to 100ms.",
+          "type": ["integer", "null"],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reply_polling_ms": {
+          "description": "(Publisher only) Polling interval in milliseconds for the publisher when waiting for a reply. Defaults to 50ms.",
+          "type": ["integer", "null"],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "request_reply": {
+          "description": "(Publisher only) If true, the publisher will wait for a response in a dedicated collection. Defaults to false.",
+          "type": "boolean",
+          "default": false
+        },
+        "request_timeout_ms": {
+          "description": "(Publisher only) Timeout for request-reply operations in milliseconds. Defaults to 30000ms.",
           "type": ["integer", "null"],
           "format": "uint64",
           "minimum": 0
@@ -595,7 +729,7 @@
           }
         },
         "ttl_seconds": {
-          "description": "TTL in seconds for documents created by the publisher. If set, a TTL index is created.",
+          "description": "(Publisher only) TTL in seconds for documents created by the publisher. If set, a TTL index is created.",
           "type": ["integer", "null"],
           "format": "uint64",
           "minimum": 0
@@ -612,12 +746,21 @@
       "additionalProperties": false,
       "required": ["url", "database"]
     },
-    "MqttEndpoint": {
-      "description": "MQTT endpoint configuration.",
+    "MqttConfig": {
+      "description": "General MQTT connection configuration.",
       "type": "object",
       "properties": {
         "clean_session": {
-          "description": "If true, start with a clean session. Defaults to false (persistent session).",
+          "description": "(Consumer only) If true, start with a clean session. Defaults to false (persistent session). Setting this to true effectively enables **Subscriber mode** (ephemeral).",
+          "type": "boolean",
+          "default": false
+        },
+        "client_id": {
+          "description": "Optional client ID. If not provided, one is generated or derived from route name.",
+          "type": ["string", "null"]
+        },
+        "delayed_ack": {
+          "description": "(Publisher only) If true, messages are acknowledged immediately upon receipt (auto-ack).\nIf false (default), messages are acknowledged after processing (manual-ack).",
           "type": "boolean",
           "default": false
         },
@@ -656,6 +799,12 @@
           "format": "uint",
           "minimum": 0
         },
+        "session_expiry_interval": {
+          "description": "Session expiry interval in seconds (MQTT v5 only).",
+          "type": ["integer", "null"],
+          "format": "uint32",
+          "minimum": 0
+        },
         "tls": {
           "description": "TLS configuration.",
           "$ref": "#/$defs/TlsConfig",
@@ -669,6 +818,7 @@
           }
         },
         "topic": {
+          "description": "The MQTT topic.",
           "type": ["string", "null"]
         },
         "url": {
@@ -687,14 +837,10 @@
       "type": "string",
       "enum": ["v5", "v3"]
     },
-    "NatsEndpoint": {
-      "description": "NATS endpoint configuration, combining connection and subject details.",
+    "NatsConfig": {
+      "description": "General NATS connection configuration.",
       "type": "object",
       "properties": {
-        "default_stream": {
-          "description": "The default stream name to use if not specified in the endpoint configuration.",
-          "type": ["string", "null"]
-        },
         "delayed_ack": {
           "description": "(Publisher only) If true, do not wait for an acknowledgement when sending to broker. Defaults to false.",
           "type": "boolean",
@@ -710,37 +856,44 @@
           "type": ["string", "null"]
         },
         "prefetch_count": {
-          "description": "Number of messages to prefetch from the consumer. Defaults to 10000.",
+          "description": "(Consumer only) Number of messages to prefetch from the consumer. Defaults to 10000.",
           "type": ["integer", "null"],
           "format": "uint",
           "minimum": 0
         },
         "request_reply": {
-          "description": "(Publisher only) If true, the publisher uses the request-reply pattern.\nIt sends a request and waits for a response (using `core_client.request_with_headers()`)\nwith timeout handling. Defaults to false.",
+          "description": "(Publisher only) If true, the publisher uses the request-reply pattern.\nIt sends a request and waits for a response (using `core_client.request_with_headers()`).\nDefaults to false.",
           "type": "boolean",
           "default": false
         },
         "request_timeout_ms": {
-          "description": "Timeout for request-reply operations in milliseconds. Defaults to 2000ms.",
+          "description": "(Publisher only) Timeout for request-reply operations in milliseconds. Defaults to 30000ms.",
           "type": ["integer", "null"],
           "format": "uint64",
           "minimum": 0
         },
         "stream": {
+          "description": "(Consumer only). The JetStream stream name. Required for Consumers.",
           "type": ["string", "null"]
         },
         "stream_max_bytes": {
-          "description": "Maximum total bytes in the stream (if created by the bridge). Defaults to 1GB.",
+          "description": "(Publisher only) Maximum total bytes in the stream (if created by the bridge). Defaults to 1GB.",
           "type": ["integer", "null"],
           "format": "int64"
         },
         "stream_max_messages": {
-          "description": "Maximum number of messages in the stream (if created by the bridge). Defaults to 1,000,000.",
+          "description": "(Publisher only) Maximum number of messages in the stream (if created by the bridge). Defaults to 1,000,000.",
           "type": ["integer", "null"],
           "format": "int64"
         },
         "subject": {
+          "description": "The NATS subject to publish to or subscribe to.",
           "type": ["string", "null"]
+        },
+        "subscriber_mode": {
+          "description": "(Consumer only) If true, use ephemeral **Subscriber mode**. Defaults to false (durable consumer).",
+          "type": "boolean",
+          "default": false
         },
         "tls": {
           "description": "TLS configuration.",
@@ -774,6 +927,7 @@
       "type": "object",
       "properties": {
         "probability": {
+          "description": "Probability of panic (0.0 to 1.0).",
           "type": "number",
           "format": "double"
         }
@@ -789,24 +943,28 @@
       "type": "object",
       "properties": {
         "initial_interval_ms": {
+          "description": "Initial retry interval in milliseconds. Defaults to 100ms.",
           "type": "integer",
           "format": "uint64",
           "default": 100,
           "minimum": 0
         },
         "max_attempts": {
+          "description": "Maximum number of retry attempts. Defaults to 3.",
           "type": "integer",
           "format": "uint",
           "default": 3,
           "minimum": 0
         },
         "max_interval_ms": {
+          "description": "Maximum retry interval in milliseconds. Defaults to 5000ms.",
           "type": "integer",
           "format": "uint64",
           "default": 5000,
           "minimum": 0
         },
         "multiplier": {
+          "description": "Multiplier for exponential backoff. Defaults to 2.0.",
           "type": "number",
           "format": "double",
           "default": 2.0
@@ -825,6 +983,13 @@
           "default": 1,
           "minimum": 1
         },
+        "commit_concurrency_limit": {
+          "description": "(Optional) The maximum number of concurrent commit tasks allowed. Defaults to 4096.",
+          "type": "integer",
+          "format": "uint",
+          "default": 4096,
+          "minimum": 0
+        },
         "concurrency": {
           "description": "(Optional) Number of concurrent processing tasks for this route. Defaults to 1.",
           "type": "integer",
@@ -841,7 +1006,6 @@
           "$ref": "#/$defs/Endpoint",
           "default": {
             "middlewares": [],
-            "mode": "consume",
             "null": null
           }
         }
@@ -853,12 +1017,14 @@
       "type": "object",
       "properties": {
         "cases": {
+          "description": "A map of values to endpoints.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/Endpoint"
           }
         },
         "default": {
+          "description": "The default endpoint if no case matches.",
           "anyOf": [
             {
               "$ref": "#/$defs/Endpoint"
@@ -869,6 +1035,7 @@
           ]
         },
         "metadata_key": {
+          "description": "The metadata key to inspect for routing decisions.",
           "type": "string"
         }
       },
@@ -908,7 +1075,7 @@
       "additionalProperties": false,
       "required": ["required"]
     },
-    "ZeroMqEndpoint": {
+    "ZeroMqConfig": {
       "type": "object",
       "properties": {
         "bind": {
@@ -936,6 +1103,7 @@
           "default": null
         },
         "topic": {
+          "description": "(Consumer only) The ZeroMQ topic (for SUB sockets).",
           "type": ["string", "null"]
         },
         "url": {
