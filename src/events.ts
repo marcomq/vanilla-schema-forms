@@ -1,6 +1,6 @@
 import { RenderContext, ErrorObject } from "./types";
 import { FormNode } from "./parser";
-import { renderNode, findCustomRenderer, hydrateNodeWithData } from "./renderer";
+import { renderNode, findCustomRenderer, hydrateNodeWithData, getName } from "./renderer";
 import { generateDefaultData } from "./form-data-reader";
 import { validateData } from "./validator";
 import { domRenderer } from "./dom-renderer";
@@ -64,12 +64,12 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
   const newKey = target.value;
   
   if (oldKey !== newKey) {
-    const match = target.id.match(/(.*)\.__ap_\d+_key$/);
+    const match = target.id.match(/(.*)\.__ap_(\d+)_key$/);
     if (match) { 
       const parentId = match[1];
-      const path = resolvePath(parentId + ".dummy"); // Resolve parent path
+      const index = match[2];
+      const path = resolvePath(context, parentId); // Resolve parent path
       if (path) {
-        path.pop(); // Remove 'dummy'
         const rawParentObj = context.store.getPath(path);
         // If the parent object doesn't exist in the store, we can't do anything.
         // This can happen if the parent is part of an uninitialized array item.
@@ -79,15 +79,20 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
 
           // If val is undefined, it's a new key. We need to generate default data.
           if (val === undefined) {
-            const node = context.nodeRegistry.get(parentId);
-            if (node) {
+            let node = context.nodeRegistry.get(parentId);
+            // Fallback: if node not found but path resolves to root, use rootNode
+            if (!node && path.length === 0) {
+              node = context.rootNode;
+            }
+
+            if (node && node.additionalProperties) {
               const valueSchema = typeof node.additionalProperties === 'object' 
                 ? node.additionalProperties 
-                : { type: 'string' } as FormNode;
+                : { type: 'string', title: 'Value' } as FormNode;
               val = generateDefaultData(valueSchema);
             } else {
-              // Fallback if node not found, though this shouldn't happen in normal flow.
-              val = "";
+              // Fallback if node not found. Default to empty object to avoid "required" errors on children.
+              val = {};
             }
           }
 
@@ -95,6 +100,24 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
           if (newKey) parentObj[newKey] = val;
           context.store.setPath(path, parentObj);
           target.setAttribute('data-original-key', newKey);
+
+          // Update Data Paths and Names for children
+          const apId = `${parentId}.__ap_${index}`;
+          const oldPath = context.elementIdToDataPath.get(apId);
+          if (oldPath) {
+             const basePath = oldPath.substring(0, oldPath.lastIndexOf('/'));
+             const newPath = `${basePath}/${newKey}`;
+             
+             updateDataPaths(context, apId, oldPath, newPath);
+             
+             const row = target.closest(`.${rendererConfig.triggers.additionalPropertyRow}`);
+             if (row) {
+                 const valueWrapper = row.querySelector(`.${rendererConfig.triggers.apValueWrapper}`);
+                 if (valueWrapper) {
+                     updateDomNames(valueWrapper as HTMLElement, oldPath, newPath);
+                 }
+             }
+          }
         }
       }
     }
@@ -102,7 +125,7 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
 }
 
 function handleValueUpdate(context: RenderContext, target: HTMLInputElement | HTMLSelectElement): void {
-  const path = resolvePath(target.id);
+  const path = resolvePath(context, target.id);
   if (!path) return;
   // If a field is cleared, remove it from the data model.
   // - For required fields, this will trigger AJV's `required` validation.
@@ -156,7 +179,7 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     // Update Store: Replace the data for this object with the new oneOf selection's defaults.
     // This approach does not preserve values between oneOf selections, which is the safest default
     // and matches the integration test expectations.
-    const storePath = resolvePath(elementId!);
+    const storePath = resolvePath(context, elementId!);
     if (storePath) {
       const currentData = context.store.getPath(storePath) || {};
       const newData: any = {};
@@ -235,7 +258,7 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       container.appendChild(itemNodeWrapper);
 
       // Update Store: Add default value
-      const path = resolvePath(elementId!);
+      const path = resolvePath(context, elementId!);
       if (path) {
         // The new item is at the index we just calculated
         const itemPath = [...path, index];
@@ -268,7 +291,7 @@ function handleArrayRemoveItem(context: RenderContext, target: HTMLElement, cont
     row.remove();
     
     // Update Store: Remove item at index
-    const path = resolvePath(baseId);
+    const path = resolvePath(context, baseId);
     if (path) {
       const array = context.store.getPath(path) as any[] | undefined;
       if (Array.isArray(array)) {
@@ -296,9 +319,6 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     // APs are tricky for data path mapping because key is dynamic. 
     
     const apId = `${elementId}.__ap_${index}`;
-    const apDataPath = `${context.elementIdToDataPath.get(elementId!) || ""}/__ap_${index}`;
-    const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
-    context.dataPathRegistry.set(apDataPath, apId);
     
     let defaultKey = "";
     const renderer = findCustomRenderer(context, elementId || "");
@@ -311,6 +331,13 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
         defaultKey = keyPattern.replace('{i}', (index + 1).toString());
       }
     }
+
+    // Use defaultKey if available, otherwise fallback to internal ID to ensure unique path
+    const pathSegment = defaultKey || `__ap_${index}`;
+    const apDataPath = `${context.elementIdToDataPath.get(elementId!) || ""}/${pathSegment}`;
+    const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
+    context.dataPathRegistry.set(apDataPath, apId);
+    context.elementIdToDataPath.set(apId, apDataPath);
     
     const uniqueId = `${elementId}.__ap_${index}_key`;
     
@@ -323,7 +350,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     // For APs, the key is dynamic. We usually wait for the user to type the key.
     // However, if we have a defaultKey, we can set it.
     if (defaultKey) {
-       const path = resolvePath(elementId!);
+       const path = resolvePath(context, elementId!);
        if (path) {
          context.store.setPath([...path, defaultKey], generateDefaultData(valueSchema));
        }
@@ -359,7 +386,7 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
 
   if (keyInput && keyInput.value) {
     if (elementId) {
-       const path = resolvePath(elementId);
+       const path = resolvePath(context, elementId);
        if (path) {
          context.store.removePath([...path, keyInput.value]);
        }
@@ -377,7 +404,35 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
   container.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-export function resolvePath(elementId: string): (string | number)[] | null {
+function dataPathToArray(dataPath: string): (string | number)[] {
+  if (!dataPath) return [];
+  // dataPath is like /Routes/Default Route/output/kafka/middlewares/0
+  // We need to skip the root segment ('Routes') and convert numeric parts to numbers.
+  const parts = dataPath.split('/').filter(p => p);
+  if (parts.length <= 1) return [];
+
+  return parts.slice(1).map(p => {
+    const num = parseInt(p, 10);
+    return String(num) === p ? num : p;
+  });
+}
+
+export function resolvePath(contextOrId: RenderContext | string, elementId?: string): (string | number)[] | null {
+  if (typeof contextOrId === 'string') {
+    return resolvePathLegacy(contextOrId);
+  }
+
+  const context = contextOrId as RenderContext;
+  const id = elementId;
+
+  if (!id) return null;
+
+  const dataPath = context.elementIdToDataPath.get(id);
+  if (dataPath === undefined) return null;
+  return dataPathToArray(dataPath);
+}
+
+function resolvePathLegacy(elementId: string): (string | number)[] | null {
   const fullParts = elementId.split('.');
   if (fullParts.length === 0) return [];
   
@@ -494,6 +549,40 @@ function updateAPIndices(context: RenderContext, container: HTMLElement, startIn
   }
 }
 
+function updateDataPaths(context: RenderContext, rootId: string, oldRootPath: string, newRootPath: string) {
+  const idsToUpdate: string[] = [];
+  for (const id of context.elementIdToDataPath.keys()) {
+    if (id === rootId || id.startsWith(rootId + '.')) {
+      idsToUpdate.push(id);
+    }
+  }
+  
+  for (const id of idsToUpdate) {
+    const currentPath = context.elementIdToDataPath.get(id)!;
+    if (currentPath.startsWith(oldRootPath)) {
+      const suffix = currentPath.substring(oldRootPath.length);
+      const nextPath = newRootPath + suffix;
+      
+      context.elementIdToDataPath.set(id, nextPath);
+      context.dataPathRegistry.delete(currentPath);
+      context.dataPathRegistry.set(nextPath, id);
+    }
+  }
+}
+
+function updateDomNames(container: HTMLElement, oldPath: string, newPath: string) {
+  const oldNamePrefix = getName(oldPath);
+  const newNamePrefix = getName(newPath);
+  
+  const elements = container.querySelectorAll('[name]');
+  elements.forEach(el => {
+    const name = el.getAttribute('name');
+    if (name && name.startsWith(oldNamePrefix)) {
+      el.setAttribute('name', name.replace(oldNamePrefix, newNamePrefix));
+    }
+  });
+}
+
 function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPrefix: string, oldPathSuffix: string, newPathSuffix: string) {
   const keysToMove: string[] = [];
   for (const key of context.nodeRegistry.keys()) {
@@ -536,14 +625,22 @@ function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPre
 }
 
 function findElementIdForPath(context: RenderContext, ajvPath: string): string | undefined {
+  // The dataPathRegistry includes the root element name (e.g. "/Routes/prop"),
+  // but AJV paths are relative to the data root (e.g. "/prop").
+  // We need to prepend the root segment to the AJV path to match the registry.
+  const rootNode = context.rootNode;
+  const safeTitle = rootNode.title.replace(/[^a-zA-Z0-9]/g, '');
+  const rootSegment = rootNode.key || safeTitle || 'root';
+  const fullPath = `/${rootSegment}${ajvPath}`;
+
   // 1. Direct lookup (works for static paths)
-  if (context.dataPathRegistry.has(ajvPath)) {
-    return context.dataPathRegistry.get(ajvPath);
+  if (context.dataPathRegistry.has(fullPath)) {
+    return context.dataPathRegistry.get(fullPath);
   }
 
   // 2. Fuzzy lookup for Additional Properties (dynamic keys)
   // AJV path uses actual keys (e.g. "/route1/url"), Registry uses internal IDs (e.g. "/__ap_0/url")
-  const ajvSegments = ajvPath.split('/').filter(s => s);
+  const ajvSegments = fullPath.split('/').filter(s => s);
   
   for (const [regPath, elementId] of context.dataPathRegistry.entries()) {
     const regSegments = regPath.split('/').filter(s => s);

@@ -42,6 +42,14 @@ export function findCustomRenderer(context: RenderContext, elementId: string): C
   return bestMatch;
 }
 
+export function getName(dataPath: string): string {
+  if (!dataPath) return "";
+  const parts = dataPath.split('/').filter(p => p !== "");
+  if (parts.length === 0) return "";
+  const [head, ...tail] = parts;
+  return head + tail.map(p => `[${p}]`).join('');
+}
+
 export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: string = ""): Node {
   let segment = node.key;
   if (!segment) {
@@ -52,6 +60,12 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
 
   const elementId = path ? `${path}.${segment}` : segment;
+  
+  // Ensure root dataPath includes the root segment so that getName() produces "Root[prop]" instead of "prop"
+  if (!path && !dataPath) {
+    dataPath = `/${segment}`;
+  }
+  const name = getName(dataPath);
 
   if (context.config.visibility.customVisibility && !context.config.visibility.customVisibility(node, elementId)) {
     return domRenderer.renderFragment([]);
@@ -81,23 +95,23 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
 
   // 2. Widget Overrides
   if (renderer?.widget === 'select') {
-    return domRenderer.renderSelect(node, elementId, renderer.options || []);
+    return domRenderer.renderSelect(node, elementId, renderer.options || [], name);
   }
 
   if (node.enum) {
-    return domRenderer.renderSelect(node, elementId, node.enum.map(String));
+    return domRenderer.renderSelect(node, elementId, node.enum.map(String), name);
   }
 
   // 3. Standard Types
   switch (node.type) {
-    case "string": return domRenderer.renderString(node, elementId);
+    case "string": return domRenderer.renderString(node, elementId, name);
     case "number":
     case "integer": {
       // Prevent "null" string in value attribute for number inputs which causes browser warnings
       const safeNode = node.defaultValue === null ? { ...node, defaultValue: "" } : node;
-      return domRenderer.renderNumber(safeNode, elementId);
+      return domRenderer.renderNumber(safeNode, elementId, name);
     }
-    case "boolean": return domRenderer.renderBoolean(node, elementId);
+    case "boolean": return domRenderer.renderBoolean(node, elementId, name);
     case "object": return renderObject(context, node, path, elementId, headless, dataPath);
     case "array": {
       const isFixedSize = !!(node.prefixItems && node.prefixItems.length > 0 && !node.items);
@@ -144,7 +158,8 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
 }
 
 export function renderObject(context: RenderContext, node: FormNode, _path: string, elementId: string, headless: boolean, dataPath: string, options?: { additionalProperties?: { title?: string | null, keyPattern?: string } }): Node {
-  const oneOf = domRenderer.renderOneOf(node, elementId);
+  const name = getName(dataPath);
+  const oneOf = domRenderer.renderOneOf(node, elementId, name);
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
   const ap = domRenderer.renderAdditionalProperties(node, elementId, options?.additionalProperties);
   
@@ -164,12 +179,13 @@ export function renderObject(context: RenderContext, node: FormNode, _path: stri
         valueNode.key = undefined;
 
         const apId = `${elementId}.__ap_${apIndex}`;
-        const apDataPath = `${dataPath}/__ap_${apIndex}`;
+        const apDataPath = `${dataPath}/${key}`;
 
         // Render headless to avoid double borders (AP row already has border/container)
         const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
         // Manually register data path because renderNode skips it for headless nodes
         context.dataPathRegistry.set(apDataPath, apId);
+        context.elementIdToDataPath.set(apId, apDataPath);
         
         const uniqueId = `${apId}_key`;
         const renderer = findCustomRenderer(context, elementId);

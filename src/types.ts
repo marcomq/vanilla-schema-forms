@@ -7,13 +7,13 @@ export type ErrorObject = AjvErrorObject;
 export interface TemplateRenderer<T> {
   renderFieldWrapper(node: FormNode, elementId: string, input: T, className?: string): T;
   renderFieldsetWrapper(node: FormNode, elementId: string, content: T, className?: string): T;
-  renderString(node: FormNode, elementId: string): T;
-  renderNumber(node: FormNode, elementId: string): T;
-  renderBoolean(node: FormNode, elementId: string, attributes?: string): T;
-  renderSelect(node: FormNode, elementId: string, options: string[]): T;
+  renderString(node: FormNode, elementId: string, name: string): T;
+  renderNumber(node: FormNode, elementId: string, name: string): T;
+  renderBoolean(node: FormNode, elementId: string, name: string, attributes?: string): T;
+  renderSelect(node: FormNode, elementId: string, options: string[], name: string): T;
   renderObject(node: FormNode, elementId: string, content: T): T;
   renderAdditionalProperties(node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): T;
-  renderOneOf(node: FormNode, elementId: string): T;
+  renderOneOf(node: FormNode, elementId: string, name: string): T;
   renderArray(node: FormNode, elementId: string, options?: { isFixedSize?: boolean }): T;
   renderArrayItem(item: T, options?: { isRemovable?: boolean }): T;
   renderAdditionalPropertyRow(value: T, defaultKey?: string, uniqueId?: string): T;

@@ -89,22 +89,28 @@ test.describe('Schema Form Mechanics', () => {
     // 1. Set Route Key
     const keyInput = page.locator('.js_ap-key').first();
     await keyInput.fill('deep-test');
+    await keyInput.blur();
 
     // 2. Configure Input -> Memory
-    const inputSelector = page.locator('select[id$=".input__selector"]');
+    const routeRow = page.locator('.js_ap-row').filter({ has: page.locator('input[data-original-key="deep-test"]') });
+    const inputSelector = routeRow.locator('select[id$=".input__selector"]');
     await inputSelector.selectOption({ label: 'Memory' });
 
     // 3. Fill the Topic
-    const topicInput = page.getByLabel('Topic', { exact: false });
+    const topicInput = routeRow.getByLabel('Topic', { exact: false });
     await topicInput.fill('my-kafka-topic');
     await topicInput.blur();
 
     // 4. Verify JSON Structure
+    // Wait for the JSON output to contain the topic we entered, to ensure update propagation
+    await expect(page.locator('#json-output')).toHaveValue(/my-kafka-topic/);
+
     const jsonText = await page.locator('#json-output').inputValue();
     const jsonData = JSON.parse(jsonText);
 
     expect(jsonData['deep-test']).toBeDefined();
     expect(jsonData['deep-test'].input).toBeDefined();
+    // console.log(jsonData)
     expect(jsonData['deep-test'].input.memory).toBeDefined();
     expect(jsonData['deep-test'].input.memory.topic).toBe('my-kafka-topic');
   });

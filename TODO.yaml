@@ -9,13 +9,18 @@
   title: Robust Path Handling
   description: >-
     Paths are concatenated strings (`parent + '.' + key`). This fails with keys 
-    containing dots or brackets. Refactor to use Array paths (`['parent', 'key']`).
+    containing dots or brackets. 
+    First step would be to add `name` attributes to input and select elements using bracket notation 
+    (e.g., root.childType.key should be  `root["childType"]["key"]`) to ensure compatibility with Rust Actix form parsing.
+    No change of id, if possible so that we can switch later when the names are fine.
   impact: Medium
-  status: Backlog
+  status: Next
   affectedFiles:
     - "@src/state.ts"
     - "@src/renderer.ts"
     - "@src/parser.ts"
+    - "@src/events.ts"
+    - "@src/dom-renderer.ts"
 - id: TASK-006
   title: Create Playground
   description: >-
@@ -31,7 +36,6 @@
   title: Optimize Customization for mq-bridge schema
   description: >-
     Optimize schema to improve UX: 
-    1. Always add an empty route if no route exist.
     2. Endpoint should be the first parameter in the form. First input, then output.
     3. Split input and output into visibly separate sections. 
     4. Compact input format. Don't show label above input. Render with label on left, input next and description on right in one line.

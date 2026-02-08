@@ -100,11 +100,12 @@ export const domRenderer: TemplateRenderer<Node> = {
       'data-element-id': elementId
     }, ...children);
   },
-  renderString: (node: FormNode, elementId: string): Node => {
+  renderString: (node: FormNode, elementId: string, name: string): Node => {
     const attrs: { [key: string]: any } = {
       type: 'text',
       className: rendererConfig.classes.input,
       id: elementId,
+      name: name,
     };
 
     if (node.defaultValue !== undefined) attrs.value = node.defaultValue;
@@ -145,11 +146,12 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     return h(rendererConfig.elements.fieldset, { className: `${rendererConfig.classes.fieldset} ${className}`, id: elementId }, ...children);
   },
-  renderNumber: (node: FormNode, elementId: string): Node => {
+  renderNumber: (node: FormNode, elementId: string, name: string): Node => {
     const attrs: { [key: string]: any } = {
       type: 'number',
       className: rendererConfig.classes.input,
       id: elementId,
+      name: name,
     };
 
     if (node.defaultValue !== undefined) {
@@ -164,21 +166,31 @@ export const domRenderer: TemplateRenderer<Node> = {
     const inputEl = h(rendererConfig.elements.input, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
-  renderBoolean: (node: FormNode, elementId: string, _attributes: string = ""): Node => {
+  renderBoolean: (node: FormNode, elementId: string, name: string, _attributes: string = ""): Node => {
+    let attrsString = _attributes;
+    let finalName = name;
+
+    // Compatibility fix for custom renderers that may be calling with an outdated signature
+    // where the attribute string was the 3rd argument instead of the 4th.
+    if (name && name.includes('data-toggle-target') && !_attributes) {
+      attrsString = name;
+      finalName = ''; // The correct name is unknown here, but this is better than a broken attribute.
+    }
+
     const attrs: { [key: string]: any } = {
       type: 'checkbox',
       className: rendererConfig.classes.checkboxInput,
-      id: elementId
+      id: elementId,
+      name: finalName,
     };
 
     if (node.defaultValue) attrs.checked = true;
     if (node.required) attrs.required = true;
     if (node.readOnly) attrs.disabled = true;
 
-    // The old implementation had an `attributes` parameter which is not used in the new hyperscript implementation.
-    // I am not sure what it was for, but I am keeping the signature for now.
-    if (_attributes) {
-      const match = _attributes.match(/data-toggle-target="([^"]+)"/);
+    // The `_attributes` string is a legacy way to pass `data-toggle-target` for custom renderers.
+    if (attrsString) {
+      const match = attrsString.match(/data-toggle-target="([^"]+)"/);
       if (match) {
         attrs['data-toggle-target'] = match[1];
       }
@@ -198,7 +210,7 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     return h('div', { className: rendererConfig.classes.checkboxWrapper }, ...children);
   },
-  renderSelect: (node: FormNode, elementId: string, options: string[] = []): Node => {
+  renderSelect: (node: FormNode, elementId: string, options: string[] = [], name: string): Node => {
     const optionElements = options.map(o => {
       const attrs: { [key:string]: any } = { value: o };
       if (String(node.defaultValue) === o) {
@@ -209,7 +221,8 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     const attrs: { [key: string]: any } = {
       className: rendererConfig.classes.select,
-      id: elementId
+      id: elementId,
+      name: name,
     };
     if (node.required) attrs.required = true;
     if (node.readOnly) attrs.disabled = true;
@@ -262,7 +275,7 @@ export const domRenderer: TemplateRenderer<Node> = {
       'data-element-id': elementId
     }, ...children);
   },
-  renderOneOf: (node: FormNode, elementId: string): Node => {
+  renderOneOf: (node: FormNode, elementId: string, name: string): Node => {
     if (!node.oneOf || node.oneOf.length === 0) return document.createTextNode('');
 
     let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
@@ -285,7 +298,8 @@ export const domRenderer: TemplateRenderer<Node> = {
     const selectEl = h('select', {
       className: `${rendererConfig.classes.oneOfSelector} ${rendererConfig.triggers.oneOfSelector}`,
       id: `${elementId}__selector`,
-      'data-id': elementId
+      'data-id': elementId,
+      name: name
     }, ...optionElements);
 
     const contentContainer = h('div', {
