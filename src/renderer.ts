@@ -2,6 +2,7 @@ import { FormNode } from "./parser";
 import { RenderContext, CustomRenderer } from "./types";
 import { attachInteractivity } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
+import { CONFIG } from "./config";
 
 export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
   "mode": {
@@ -46,7 +47,16 @@ export function getName(dataPath: string): string {
   if (!dataPath) return "";
   const parts = dataPath.split('/').filter(p => p !== "");
   if (parts.length === 0) return "";
-  const [head, ...tail] = parts;
+
+  // If skipping root, and we have more than one part, drop the first one.
+  // If there's only one part, it's the root itself, which we may need as the name.
+  const finalParts = CONFIG.html?.skipRootFromName && parts.length > 1 ? parts.slice(1) : parts;
+
+  if (finalParts.length === 0) {
+    return "";
+  }
+
+  const [head, ...tail] = finalParts;
   return head + tail.map(p => `[${p}]`).join('');
 }
 

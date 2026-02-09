@@ -1,4 +1,4 @@
-export function h(tag: string, attrs: { [key: string]: any }, ...children: (string | Node)[]): HTMLElement {
+export function h(tag: string, attrs: { [key: string]: any }, ...children: (string | number | Node)[]): HTMLElement {
   const el = document.createElement(tag);
 
   for (const key in attrs) {
@@ -19,10 +19,10 @@ export function h(tag: string, attrs: { [key: string]: any }, ...children: (stri
   }
 
   for (const child of children) {
-    if (typeof child === 'string') {
-      el.appendChild(document.createTextNode(child));
+    if (typeof child === 'string' || typeof child === 'number') {
+      el.appendChild(document.createTextNode(String(child)));
     } else if (child) {
-      el.appendChild(child);
+      el.appendChild(child as Node);
     }
   }
 

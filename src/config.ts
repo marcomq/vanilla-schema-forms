@@ -18,7 +18,10 @@ export const DEFAULT_CONFIG = {
   },
   layout: {
     groups: {} as Record<string, { keys: string[], title?: string, className?: string }[]>
-  }
+  },
+  html: {
+    skipRootFromName: false,
+  },
 };
 
 export let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));

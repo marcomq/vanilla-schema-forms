@@ -138,7 +138,7 @@ function handleValueUpdate(context: RenderContext, target: HTMLInputElement | HT
   let value: any = target.value;
   if (target.type === 'checkbox') {
     value = (target as HTMLInputElement).checked;
-  } else if (target.type === 'number') {
+  } else if (target.type === 'number' || target.type === 'range') {
     value = (target as HTMLInputElement).valueAsNumber;
     // An empty number input is handled above. A non-numeric string in a number
     // input also results in NaN. We set it to null to trigger a type error.
@@ -578,7 +578,10 @@ function updateDomNames(container: HTMLElement, oldPath: string, newPath: string
   elements.forEach(el => {
     const name = el.getAttribute('name');
     if (name && name.startsWith(oldNamePrefix)) {
-      el.setAttribute('name', name.replace(oldNamePrefix, newNamePrefix));
+      const nextChar = name[oldNamePrefix.length];
+      if (!nextChar || nextChar === '[') {
+        el.setAttribute('name', newNamePrefix + name.substring(oldNamePrefix.length));
+      }
     }
   });
 }

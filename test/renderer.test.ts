@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { hydrateNodeWithData } from '../src/renderer';
+import { describe, it, expect, afterEach } from 'vitest';
+import { hydrateNodeWithData, getName } from '../src/renderer';
 import { FormNode } from '../src/parser';
+import { setConfig, resetConfig } from '../src/config';
 
 describe('hydrateNodeWithData', () => {
   it('preserves primitive values', () => {
@@ -36,5 +37,27 @@ describe('hydrateNodeWithData', () => {
     // Invalid
     const invalid = hydrateNodeWithData(node, 'C');
     expect(invalid.defaultValue).toBeUndefined();
+  });
+});
+
+describe('getName', () => {
+  afterEach(() => {
+    resetConfig();
+  });
+
+  it('should generate standard name by default', () => {
+    expect(getName('/Root/prop')).toBe('Root[prop]');
+    expect(getName('/Root/nested/prop')).toBe('Root[nested][prop]');
+  });
+
+  it('should skip root when configured', () => {
+    setConfig({ html: { skipRootFromName: true } });
+    expect(getName('/Root/prop')).toBe('prop');
+    expect(getName('/Root/nested/prop')).toBe('nested[prop]');
+  });
+
+  it('should handle single segment paths when skipping root', () => {
+    setConfig({ html: { skipRootFromName: true } });
+    expect(getName('/Root')).toBe('Root');
   });
 });

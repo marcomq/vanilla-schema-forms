@@ -9,6 +9,7 @@ import {
   generateDefaultData,
   renderNode,
   resolvePath,
+  getName,
 } from "../src/index";
 
 // Apply global I18N overrides
@@ -130,12 +131,14 @@ export const tlsRenderer = {
 
     const otherProps = { ...node.properties };
     delete otherProps["required"];
+    const name = getName(`${dataPath}/required`);
 
     const requiredId = `${elementId}.required`;
     const checkbox = domRenderer.renderBoolean(
       requiredProp,
       requiredId,
-      `data-toggle-target="${elementId}-options"`,
+      name,
+      `data-toggle-target="${elementId}-options"`
     );
     const optionsContent = renderProperties(
       context,

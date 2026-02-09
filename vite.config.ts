@@ -3,12 +3,21 @@ import { defineConfig } from 'vitest/config';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(async () => {
+  let svelte;
+  try {
+    svelte = (await import('@sveltejs/vite-plugin-svelte')).svelte;
+  } catch (e) {
+    console.warn('Svelte plugin not found. Skipping Svelte configuration.');
+  }
+
+  return {
   root: 'example',
   plugins: [
     nodePolyfills({
       include: ['buffer', 'path'],
-    })
+    }),
+    svelte ? svelte() : null
   ],
   server: {
     fs: {
@@ -31,5 +40,6 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['test/**/*.test.ts'],
     exclude: ['playwright-tests/**'],
-  }
+  },
+  };
 });

@@ -9,7 +9,7 @@ import { validateAndShowErrors, resolvePath } from "./events";
 
 export { setConfig, resetConfig } from "./config";
 export { setI18n, resetI18n } from "./i18n";
-export { renderNode, renderObject, renderProperties } from "./renderer";
+export { renderNode, renderObject, renderProperties, getName } from "./renderer";
 export type { RenderContext, CustomRenderer } from "./types";
 export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
@@ -23,16 +23,26 @@ export function setCustomRenderers(renderers: Record<string, CustomRenderer<any>
   globalCustomRenderers = { ...globalCustomRenderers, ...renderers };
 }
 
+export interface RenderOptions {
+  subSchemaPath?: string;
+}
+
 /**
  * Initializes the form in the specified container.
  * 
- * @param containerId - The ID of the HTML element to render the form into.
+ * @param containerOrId - The ID of the HTML element or the element itself to render the form into.
  * @param schemaOrUrl - The JSON schema object or a URL to fetch it from.
  * @param initialData - Optional initial data to populate the form with.
  * @param onDataChange - Optional callback invoked whenever the form data changes.
  * @returns An object containing the parsed root node and a function to get the current data.
  */
-export async function init(containerId: string, schemaOrUrl: string | any, initialDataOrCallback?: any, onDataChangeCallback?: (data: any) => void) {
+export async function init(
+  containerOrId: string | HTMLElement, 
+  schemaOrUrl: string | any, 
+  initialDataOrCallback?: any, 
+  onDataChangeCallback?: (data: any) => void,
+  renderOptions?: RenderOptions
+) {
   let initialData: any = undefined;
   let onDataChange: ((data: any) => void) | undefined = undefined;
 
@@ -43,22 +53,60 @@ export async function init(containerId: string, schemaOrUrl: string | any, initi
     onDataChange = onDataChangeCallback;
   }
 
-  const formContainer = document.getElementById(containerId);
+  const formContainer = typeof containerOrId === 'string' ? document.getElementById(containerOrId) : containerOrId;
 
   if (!formContainer) {
-    console.error(`Required DOM element #${containerId} not found.`);
+    console.error(`Required DOM element ${typeof containerOrId === 'string' ? '#' + containerOrId : ''} not found.`);
     return;
   }
 
   try {
-    let rootNode = await parseSchema(schemaOrUrl);
+    let schema = schemaOrUrl;
+    let data = initialData;
+
+    if (renderOptions?.subSchemaPath) {
+      // Ensure schema is an object before traversing
+      let schemaObj = typeof schema === 'string' ? await (await fetch(schema)).json() : schema;
+      
+      const pathParts = renderOptions.subSchemaPath.split('.');
+      let subSchema: any = schemaObj;
+      let subData: any = data;
+
+      for (const part of pathParts) {
+        // This traversal logic is simplistic and assumes a path of properties.
+        if (subSchema && subSchema.properties && subSchema.properties[part]) {
+          subSchema = subSchema.properties[part];
+          if (subData && typeof subData === 'object' && subData !== null && subData[part] !== undefined) {
+            subData = subData[part];
+          } else {
+            subData = undefined;
+          }
+        } else {
+          subSchema = undefined;
+          break;
+        }
+      }
+
+      if (subSchema) {
+        schema = subSchema;
+        data = subData;
+      } else {
+        const errorMsg = `Error: sub-schema path "${renderOptions.subSchemaPath}" not found.`;
+        console.error(errorMsg);
+        formContainer.innerHTML = '';
+        formContainer.appendChild(domRenderer.renderSchemaError(new Error(errorMsg)));
+        return;
+      }
+    }
+
+    let rootNode = await parseSchema(schema);
 
     // Hydrate with initial data if provided, otherwise generate defaults
-    const data = initialData !== undefined ? initialData : generateDefaultData(rootNode);
+    const finalData = data !== undefined ? data : generateDefaultData(rootNode);
     
     // Pre-hydrate the root node so the renderer knows about default values (important for arrays/oneOf)
-    if (initialData !== undefined) {
-      rootNode = hydrateNodeWithData(rootNode, data);
+    if (finalData !== undefined) {
+      rootNode = hydrateNodeWithData(rootNode, finalData);
     }
 
     const store = new Store<Record<string, any>>({});
@@ -77,7 +125,7 @@ export async function init(containerId: string, schemaOrUrl: string | any, initi
     renderForm(formContainer, context);
 
     // Initialize store
-    store.reset(data);
+    store.reset(finalData);
 
     // Subscribe to store changes
     store.subscribe((data) => {
@@ -87,8 +135,8 @@ export async function init(containerId: string, schemaOrUrl: string | any, initi
     });
 
     // Trigger initial data change
-    if (onDataChange && data) {
-      onDataChange(data);
+    if (onDataChange && finalData) {
+      onDataChange(finalData);
     }
 
     const setData = (newData: any) => {
@@ -122,14 +170,14 @@ export async function init(containerId: string, schemaOrUrl: string | any, initi
  * - Debugging (displaying JSON in a div/pre)
  * - Form submission (syncing JSON to a hidden input)
  * 
- * @param containerId - The ID of the HTML element to render the form into.
+ * @param containerOrId - The ID of the HTML element or the element itself to render the form into.
  * @param schemaOrUrl - The JSON schema object or a URL to fetch it from.
  * @param outputId - The ID of the HTML element to update with the JSON data.
  */
-export async function initLinked(containerId: string, schemaOrUrl: string | any, outputId: string) {
+export async function initLinked(containerOrId: string | HTMLElement, schemaOrUrl: string | any, outputId: string) {
   const outputElement = document.getElementById(outputId);
 
-  return init(containerId, schemaOrUrl, undefined, (data) => {
+  return init(containerOrId, schemaOrUrl, undefined, (data) => {
     if (outputElement) {
       const jsonString = JSON.stringify(data, null, 2);
       if (outputElement instanceof HTMLInputElement || outputElement instanceof HTMLTextAreaElement) {
