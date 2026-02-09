@@ -14,11 +14,11 @@ import {
   domRenderer, 
   resolvePath,
   getName
-} from '../../src/index';
-import defaultSchema from '../schema.json';
-import defaultCustomization from '../customization.js?raw'; // ?raw supported by vite
+} from '../src/index';
+import defaultSchema from './schema.json';
+import defaultCustomization from './customization.js?raw'; // ?raw supported by vite
 // @ts-ignore
-import RangeWidget from '../RangeWidget.svelte';
+import RangeWidget from './RangeWidget.svelte';
 // @ts-ignore
 import { mount } from 'svelte';
 

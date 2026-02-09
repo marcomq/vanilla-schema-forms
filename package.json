@@ -17,14 +17,13 @@
     "dist"
   ],
   "scripts": {
-    "dev": "vite",
+    "dev": "vite serve playground --config playground/vite.config.ts",
     "prebuild": "tsc --noEmit",
-    "build": "vite build --config vite.lib.config.ts && cp dist/vanilla-schema-forms.umd.* example/",
-    "test": "vitest",
+    "build": "vite build --config vite.config.lib.ts  && cp dist/vanilla-schema-forms.umd.* playground/",
+    "build:playground": "vite build --config playground/vite.config.ts",
+    "test": "vitest --config vitest.config.ts",
     "test:run": "vitest run",
     "test:e2e": "playwright test",
-    "playground": "vite --open playground/",
-    "build:pages": "vite build example/playground --outDir ../../dist-pages/playground",
     "test:watch": "concurrently \"npm:test -- --watch\" \"npx nodemon --watch src --watch playwright-tests -e ts,html,json --exec 'npm run test:e2e'\""
   },
   "peerDependencies": {

@@ -93,7 +93,7 @@ dist
 
 playwright-report
 test-results
-example/vanilla-schema-forms.umd.js*
+playground/vanilla-schema-forms.umd.js*
 
 # vuepress v2.x temp and cache directory
 .temp

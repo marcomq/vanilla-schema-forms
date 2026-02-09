@@ -3,11 +3,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "skipLibCheck": true,
     /* Bundler mode */
@@ -24,6 +20,9 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "src"
-, "test/**/*.ts", "example/customization.js", "playwright-tests/e2e.spec.ts"  ]
+    "src",
+    "test/**/*.ts",
+    "examples/customization.js",
+    "playwright-tests/e2e.spec.ts"
+  ]
 }

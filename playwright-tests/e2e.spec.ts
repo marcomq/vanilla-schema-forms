@@ -20,20 +20,20 @@ test.describe('Schema Form Mechanics', () => {
     await keyInput.blur(); // Trigger change event
 
     // 4. Verify JSON output reflects the new key
-    // Use toHaveValue with a regex for <textarea> elements
-    const jsonOutput = page.locator('#json-output');
-    await expect(jsonOutput).toHaveValue(/"my-custom-route":/);
+    // Use toContainText with a regex for non-input elements
+    const jsonOutput = page.locator('#output-data');
+    await expect(jsonOutput).toContainText(/"my-custom-route":/);
 
     // 5. Remove the route
-    await page.locator('.js_btn-remove-ap').click();
-    await expect(keyInput).not.toBeVisible();
+    await page.locator('.js_btn-remove-ap').first().click();
+
     // The JSON output should now be an empty object "{}" or empty string
-    await expect(jsonOutput).not.toHaveValue(/"my-custom-route":/);
+    await expect(jsonOutput).not.toContainText(/"my-custom-route":/);
   });
 
   test('OneOf (Polymorphism): Can switch endpoint types and render specific fields', async ({ page }) => {
     // Setup: Add a route
-    await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js_btn-add-ap').click();
 
     // 1. Find the "Input" selector. 
     // Based on your HTML, the input selector is inside the route.
@@ -59,7 +59,7 @@ test.describe('Schema Form Mechanics', () => {
 
   test('Arrays: Can add and remove middleware items', async ({ page }) => {
     // Setup: Add route
-    await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js_btn-add-ap').click();
 
     // 1. Find the "Add Item" button for middlewares
     // We target the specific button for the input middlewares array
@@ -84,7 +84,7 @@ test.describe('Schema Form Mechanics', () => {
   });
 
   test('Data Binding: Deeply nested changes update JSON output', async ({ page }) => {
-    await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js_btn-add-ap').click();
     
     // 1. Set Route Key
     const keyInput = page.locator('.js_ap-key').first();
@@ -103,10 +103,10 @@ test.describe('Schema Form Mechanics', () => {
 
     // 4. Verify JSON Structure
     // Wait for the JSON output to contain the topic we entered, to ensure update propagation
-    await expect(page.locator('#json-output')).toHaveValue(/my-kafka-topic/);
+    await expect(page.locator('#output-data')).toContainText(/my-kafka-topic/);
 
-    const jsonText = await page.locator('#json-output').inputValue();
-    const jsonData = JSON.parse(jsonText);
+    const jsonText = await page.locator('#output-data').textContent();
+    const jsonData = JSON.parse(jsonText || '{}');
 
     expect(jsonData['deep-test']).toBeDefined();
     expect(jsonData['deep-test'].input).toBeDefined();

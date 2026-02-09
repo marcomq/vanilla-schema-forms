@@ -1,13 +1,17 @@
 import { defineConfig } from 'vite';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
-  plugins: [svelte(), nodePolyfills({
-    include: ['buffer', 'path'],
-  })],
-  root: 'examples', // Since we run vite from the playground folder or with --config
+  plugins: [
+    svelte(),
+    nodePolyfills({
+      include: ['buffer', 'path'],
+      globals: { Buffer: true }
+    })
+  ],
+  root: '.', // Since we run vite from the playground folder or with --config
   base: './', // Ensures assets work on GitHub Pages
   resolve: {
     alias: {

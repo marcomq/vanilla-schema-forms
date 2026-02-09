@@ -17,7 +17,7 @@
             </div>
             <div class="col-md-6">
                 <h5>Live Output</h5>
-                <textarea id="json-output" class="form-control" rows="15" readonly></textarea>
+                <textarea id="output-data" class="form-control" rows="15" readonly></textarea>
             </div>
         </div>
     </div>
@@ -26,7 +26,7 @@
         import { initLinked } from '../dist/vanilla-schema-forms.es.js';
         
         // Re-use the schema from the example folder
-        await initLinked("form-container", "./schema.json", "json-output");
+        await initLinked("form-container", "./schema.json", "output-data");
     </script>
 </body>
 </html>

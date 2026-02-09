@@ -12,7 +12,7 @@ describe('Templates', () => {
       maxLength: 20,
       pattern: '^[a-z]+$'
     };
-    const element = domRenderer.renderString(node, 'user_id');
+    const element = domRenderer.renderString(node, 'user_id', "user_id");
     const html = (element as HTMLElement).outerHTML;
     
     expect(html).toContain('id="user_id"');
@@ -30,7 +30,7 @@ describe('Templates', () => {
       minimum: 18,
       maximum: 99
     };
-    const element = domRenderer.renderNumber(node, 'age_id');
+    const element = domRenderer.renderNumber(node, 'age_id', "age_id");
     const html = (element as HTMLElement).outerHTML;
     
     expect(html).toContain('type="number"');
@@ -44,7 +44,7 @@ describe('Templates', () => {
       title: 'Agree',
       defaultValue: true
     };
-    const element = domRenderer.renderBoolean(node, 'bool_id');
+    const element = domRenderer.renderBoolean(node, 'bool_id', "bool_id");
     const html = (element as HTMLElement).outerHTML;
     
     expect(html).toContain('type="checkbox"');
@@ -58,7 +58,7 @@ describe('Templates', () => {
       defaultValue: 'blue',
       enum: ['red', 'blue', 'green']
     };
-    const element = domRenderer.renderSelect(node, 'select_id', node.enum as string[]);
+    const element = domRenderer.renderSelect(node, 'select_id', node.enum as string[], "select_id");
     const html = (element as HTMLElement).outerHTML;
     
     expect(html).toContain('<option value="blue" selected="true">blue</option>');
