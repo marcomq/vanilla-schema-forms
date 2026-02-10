@@ -12,7 +12,7 @@
 <body>
     <div class="container mt-5">
         <h1>UMD Release Verification</h1>
-        <p class="lead">Testing <code>../dist/vanilla-schema-forms.umd.js</code></p>
+        <p class="lead">Testing <code>vanilla-schema-forms.umd.js</code></p>
         
         <div class="row mt-4">
             <div class="col-md-6">
@@ -33,7 +33,7 @@
         if (window.umdError) {
             document.getElementById('form-container').innerHTML = 
                 `<div class="alert alert-danger">
-                    <strong>Error:</strong> Failed to load script <code>../dist/vanilla-schema-forms.umd.js</code>.<br>
+                    <strong>Error:</strong> Failed to load script <code>vanilla-schema-forms.umd.js</code>.<br>
                     1. Ensure <code>npm run build</code> has been run.
                 </div>`;
         } else if (lib && lib.initLinked) {

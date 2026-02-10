@@ -18,8 +18,9 @@
   ],
   "scripts": {
     "dev": "vite serve playground --config playground/vite.config.ts",
+    "dev:test": "vite serve playground --config test/fixtures/vite.config.ts",
     "prebuild": "tsc --noEmit",
-    "build": "vite build --config vite.config.lib.ts  && cp dist/vanilla-schema-forms.umd.* playground/",
+    "build": "vite build --config vite.config.lib.ts",
     "build:playground": "vite build --config playground/vite.config.ts",
     "test": "vitest --config vitest.config.ts",
     "test:run": "vitest run",

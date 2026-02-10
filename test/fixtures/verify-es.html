@@ -9,7 +9,7 @@
 <body>
     <div class="container mt-5">
         <h1>ES Release Verification</h1>
-        <p class="lead">Testing <code>dist/vanilla-schema-forms.es.js</code></p>
+        <p class="lead">Testing <code>vanilla-schema-forms.es.js</code></p>
         
         <div class="row mt-4">
             <div class="col-md-6">
@@ -23,7 +23,7 @@
     </div>
 
     <script type="module">
-        import { initLinked } from '../dist/vanilla-schema-forms.es.js';
+        import { initLinked } from './vanilla-schema-forms.es.js';
         
         // Re-use the schema from the example folder
         await initLinked("form-container", "./schema.json", "output-data");

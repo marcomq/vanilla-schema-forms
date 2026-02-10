@@ -25,7 +25,7 @@ test.describe('Release Artifacts', () => {
         // Skip if we fell back to Playground (dev mode)
         const isPlayground = await page.getByRole('heading', { name: 'Vanilla Schema Forms Playground' }).isVisible();
         if (!isPlayground) {
-            const type = await page.evaluate(() => typeof window['VanillaSchemaForms']);
+            const type = await page.evaluate(() => typeof (window as any)['VanillaSchemaForms']);
             expect(type).toBe('object');
         }
 
