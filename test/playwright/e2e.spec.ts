@@ -32,8 +32,6 @@ test.describe('Schema Form Mechanics', () => {
   });
 
   test('OneOf (Polymorphism): Can switch endpoint types and render specific fields', async ({ page }) => {
-    // Setup: Add a route
-    // await page.locator('.js-btn-add-ap').click();
 
     // 1. Find the "Input" selector. 
     // Based on your HTML, the input selector is inside the route.
@@ -59,7 +57,6 @@ test.describe('Schema Form Mechanics', () => {
 
   test('Arrays: Can add and remove middleware items', async ({ page }) => {
     // Setup: Add route
-    // await page.locator('.js-btn-add-ap').click();
 
     // 1. Find the "Add Item" button for middlewares
     // We target the specific button for the input middlewares array
@@ -85,8 +82,6 @@ test.describe('Schema Form Mechanics', () => {
   });
 
   test('Data Binding: Deeply nested changes update JSON output', async ({ page }) => {
-    // await page.locator('.js-btn-add-ap').click();
-    
     // 1. Set Route Key
     const keyInput = page.locator('.js-ap-key').first();
     await keyInput.fill('deep-test');
