@@ -14,7 +14,11 @@ Vanilla Schema Forms is a web-based application that dynamically generates HTML 
 
 ## Status
 
-Vanilla Schema Forms is in a very early pre-alpha state. I am not using it yet and it may not be working correctly for you.
+Vanilla Schema Forms is in a very early state. I am not using it yet and it may be changed in the future.
+
+## Playground
+
+Check out the **playground**  [here](https://marcomq.github.io/vanilla-schema-forms/)
 
 ## How it Works
 
@@ -84,6 +88,58 @@ In addition to standard JSON Schema formats (email, date-time, etc.), the valida
 -   **"Buffer is not defined" or "Module 'path' has been externalized" errors**: This project uses Node.js polyfills via `vite-plugin-node-polyfills` to make `@apidevtools/json-schema-ref-parser` compatible with browser environments. Ensure this plugin is correctly configured in `vite.config.ts` and `buffer` and `path` are included in its `include` option.
 -   **404 errors for `index.html`**: Ensure `index.html` is located in the root of your project directory.
 
+## Customization
+
+Vanilla Schema Forms allows extensive customization through configuration and custom renderers.
+
+### Global Configuration
+
+You can configure global behavior like sorting and visibility using `setConfig`.
+
+```typescript
+import { setConfig } from "./src/index";
+
+setConfig({
+  sorting: {
+    defaultPriority: ["name", "id", "type"], // These keys always appear at the top
+    defaultRenderLast: ["metadata", "tags"]   // These keys always appear at the bottom
+  },
+  visibility: {
+    hiddenPaths: ["root.internalId"], // Hide specific paths
+    hiddenKeys: ["password"]          // Hide keys globally
+  }
+});
+```
+
+### Custom Renderers
+
+You can override the rendering of specific fields based on their key or path.
+
+```typescript
+import { setCustomRenderers, domRenderer } from "./src/index";
+
+setCustomRenderers({
+  // 1. Widget Override: Use a specific widget (e.g., select) for a field
+  "environment": {
+    widget: "select",
+    options: ["dev", "stage", "prod"]
+  },
+
+  // 2. Full Custom Renderer: Complete control over the DOM element
+  "color": {
+    render: (node, path, elementId, dataPath, context) => {
+      const input = document.createElement("input");
+      input.type = "color";
+      input.id = elementId;
+      input.value = node.defaultValue || "#000000";
+      
+      // Use the default wrapper for consistent labeling/layout
+      return domRenderer.renderFieldWrapper(node, elementId, input);
+    }
+  }
+});
+```
+
 ### Layout Grouping
 
 You can group fields together (e.g., for horizontal layout) using the `layout.groups` configuration in `src/config.ts`.
@@ -112,7 +168,7 @@ setConfig({
 If you prefer using a JSON Forms compatible UI Schema, you can use the built-in adapter.
 
 ```typescript
-import { adaptUiSchema } from "./ui-schema-adapter";
+import { adaptUiSchema } from "./src/index";
 
 const uiSchema = {
   type: "HorizontalLayout",
