@@ -11,7 +11,7 @@ export default defineConfig({
       globals: { Buffer: true }
     })
   ],
-  root: '.', // Since we run vite from the playground folder or with --config
+  root: __dirname, // Since we run vite from the playground folder or with --config
   base: './', // Ensures assets work on GitHub Pages
   resolve: {
     alias: {

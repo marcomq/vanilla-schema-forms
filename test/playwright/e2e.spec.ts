@@ -63,14 +63,15 @@ test.describe('Schema Form Mechanics', () => {
 
     // 1. Find the "Add Item" button for middlewares
     // We target the specific button for the input middlewares array
-    const addMiddlewareBtn = page.getByRole('group', { name: 'Input' }).locator('button', { hasText: 'Add Middleware' });
+    const middlewaresGroup = page.getByRole('group', { name: 'Input' }).getByRole('group', { name: 'Middlewares' });
+    const addMiddlewareBtn = middlewaresGroup.locator('button', { hasText: 'Add Middleware' });
     await addMiddlewareBtn.click();
 
     const typeSelect = addMiddlewareBtn.locator('xpath=following-sibling::select');
     await typeSelect.selectOption({ index: 1 });
 
     // 2. Verify an item row appears
-    const itemRow = page.locator('.js_array-item-row');
+    const itemRow = middlewaresGroup.locator('.js_array-item-row');
     await expect(itemRow).toHaveCount(1);
 
     // 4. Add a second item

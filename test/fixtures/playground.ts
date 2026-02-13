@@ -17,10 +17,7 @@ import {
 } from '../../src/index';
 import defaultSchema from './schema.json';
 import defaultCustomization from './customization.js?raw'; // ?raw supported by vite
-// @ts-ignore
-import RangeWidget from './RangeWidget.svelte';
-// @ts-ignore
-import { mount } from 'svelte';
+
 
 // --- Default Examples ---
 const EXAMPLES: Record<string, { schema: any, config: any, data: any }> = {
@@ -54,49 +51,6 @@ const EXAMPLES: Record<string, { schema: any, config: any, data: any }> = {
     },
     config: {},
     data: { firstName: "John", isActive: true }
-  },
-  svelte: {
-    schema: {
-      type: "object",
-      title: "Svelte Configured Form",
-      properties: {
-        title: { type: "string", title: "Project Title" },
-        description: { type: "string", title: "Description" },
-        priority: { type: "integer", title: "Priority Level", minimum: 1, maximum: 10, default: 5 },
-        meta: {
-          type: "object",
-          title: "Metadata",
-          properties: {
-            author: { type: "string", title: "Author" },
-            tags: { type: "string", title: "Tags" }
-          }
-        }
-      }
-    },
-    config: `import RangeWidget from '../RangeWidget.svelte';
-import { mount } from 'svelte';
-import { setCustomRenderers, getName } from "../src/index";
-setCustomRenderers({
-  priority: {
-    render: (node, path, elementId, dataPath) => {
-      // Create a temporary container to mount the Svelte component.
-      const tempContainer = document.createElement('div');
-      mount(RangeWidget, {
-        target: tempContainer,
-        props: {
-          elementId,
-          node,
-          value: node.defaultValue,
-          name: getName(dataPath)
-        }
-      });
-      // If the component rendered a single root element, return it directly
-      // to avoid an unnecessary wrapper div. Otherwise, return the container.
-      return tempContainer.childElementCount === 1 ? tempContainer.firstElementChild : tempContainer;
-    }
-  }
-});`,
-    data: {}
   },
   arrays: {
     schema: {
@@ -197,12 +151,12 @@ async function render() {
       try {
         // Try as expression (wrapped in parens to ensure it's an expression, not a block, and to fail on multiple statements)
         const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', `return (${code});`);
-        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers, RangeWidget, mount);
+        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
         console.log("js 1 found");
       } catch (e) {
         // code += "\nif (typeof CUSTOM_RENDERERS !== 'undefined') { setCustomRenderers(CUSTOM_RENDERERS); }";
         const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', code);
-        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers, RangeWidget, mount);
+        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
         console.log("js 2 found");
       }
       console.log(config);
@@ -251,7 +205,6 @@ els.btnRender.addEventListener('click', render);
 const optionMap: Record<string, string> = {
   default: "Complex (Default)",
   simple: "Simple Object",
-  svelte: "Custom Renderers (Svelte Style)",
   arrays: "Arrays"
 };
 els.selector.innerHTML = '';

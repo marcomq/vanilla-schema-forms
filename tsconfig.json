@@ -23,6 +23,6 @@
     "src",
     "test/**/*.ts",
     "examples/customization.js",
-    "playwright-tests/e2e.spec.ts"
+    "test/playwright/e2e.spec.ts"
   ]
 }

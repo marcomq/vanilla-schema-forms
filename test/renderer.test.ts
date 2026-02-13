@@ -46,18 +46,18 @@ describe('getName', () => {
   });
 
   it('should generate standard name by default', () => {
-    expect(getName('/Root/prop')).toBe('Root[prop]');
-    expect(getName('/Root/nested/prop')).toBe('Root[nested][prop]');
+    expect(getName(['Root', 'prop'])).toBe('Root[prop]');
+    expect(getName(['Root', 'nested', 'prop'])).toBe('Root[nested][prop]');
   });
 
   it('should skip root when configured', () => {
     setConfig({ html: { skipRootFromName: true } });
-    expect(getName('/Root/prop')).toBe('prop');
-    expect(getName('/Root/nested/prop')).toBe('nested[prop]');
+    expect(getName(['Root', 'prop'])).toBe('prop');
+    expect(getName(['Root', 'nested', 'prop'])).toBe('nested[prop]');
   });
 
   it('should handle single segment paths when skipping root', () => {
     setConfig({ html: { skipRootFromName: true } });
-    expect(getName('/Root')).toBe('Root');
+    expect(getName(['Root'])).toBe('Root');
   });
 });

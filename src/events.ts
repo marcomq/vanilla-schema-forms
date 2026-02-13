@@ -1,6 +1,6 @@
 import { RenderContext, ErrorObject } from "./types";
 import { FormNode } from "./parser";
-import { renderNode, findCustomRenderer, hydrateNodeWithData, getName } from "./renderer";
+import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey } from "./renderer";
 import { generateDefaultData } from "./form-data-reader";
 import { validateData } from "./validator";
 import { domRenderer } from "./dom-renderer";
@@ -105,8 +105,8 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
           const apId = `${parentId}.__ap_${index}`;
           const oldPath = context.elementIdToDataPath.get(apId);
           if (oldPath) {
-             const basePath = oldPath.substring(0, oldPath.lastIndexOf('/'));
-             const newPath = `${basePath}/${newKey}`;
+             const basePath = oldPath.slice(0, -1);
+             const newPath = [...basePath, newKey];
              
              updateDataPaths(context, apId, oldPath, newPath);
              
@@ -172,7 +172,7 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
 
     // Use the current elementId as the base path for the child option to ensure correct nesting
     const path = elementId!;
-    const parentDataPath = context.elementIdToDataPath.get(elementId!) || "";
+    const parentDataPath = context.elementIdToDataPath.get(elementId!) || [];
     contentContainer.innerHTML = '';
     contentContainer.appendChild(renderNode(context, selectedNode, path, true, parentDataPath));
 
@@ -251,8 +251,8 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       itemNode = hydrateNodeWithData(itemNode, defaultValue);
       itemNode.key = String(index);
 
-      const parentDataPath = context.elementIdToDataPath.get(elementId!) || "";
-      const itemDataPath = `${parentDataPath}/${index}`;
+      const parentDataPath = context.elementIdToDataPath.get(elementId!) || [];
+      const itemDataPath = [...parentDataPath, index];
       const innerNode = renderNode(context, itemNode, elementId!, false, itemDataPath);
       const itemNodeWrapper = domRenderer.renderArrayItem(innerNode, { isRemovable: true });
       container.appendChild(itemNodeWrapper);
@@ -334,9 +334,9 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
 
     // Use defaultKey if available, otherwise fallback to internal ID to ensure unique path
     const pathSegment = defaultKey || `__ap_${index}`;
-    const apDataPath = `${context.elementIdToDataPath.get(elementId!) || ""}/${pathSegment}`;
+    const apDataPath = [...(context.elementIdToDataPath.get(elementId!) || []), pathSegment];
     const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
-    context.dataPathRegistry.set(apDataPath, apId);
+    context.dataPathRegistry.set(toRegistryKey(apDataPath), apId);
     context.elementIdToDataPath.set(apId, apDataPath);
     
     const uniqueId = `${elementId}.__ap_${index}_key`;
@@ -404,19 +404,6 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
   container.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function dataPathToArray(dataPath: string): (string | number)[] {
-  if (!dataPath) return [];
-  // dataPath is like /Routes/Default Route/output/kafka/middlewares/0
-  // We need to skip the root segment ('Routes') and convert numeric parts to numbers.
-  const parts = dataPath.split('/').filter(p => p);
-  if (parts.length <= 1) return [];
-
-  return parts.slice(1).map(p => {
-    const num = parseInt(p, 10);
-    return String(num) === p ? num : p;
-  });
-}
-
 export function resolvePath(contextOrId: RenderContext | string, elementId?: string): (string | number)[] | null {
   if (typeof contextOrId === 'string') {
     return resolvePathLegacy(contextOrId);
@@ -427,9 +414,11 @@ export function resolvePath(contextOrId: RenderContext | string, elementId?: str
 
   if (!id) return null;
 
-  const dataPath = context.elementIdToDataPath.get(id);
-  if (dataPath === undefined) return null;
-  return dataPathToArray(dataPath);
+  const path = context.elementIdToDataPath.get(id);
+  if (!path) return null;
+  // Skip root segment for store path
+  if (path.length <= 1) return [];
+  return path.slice(1);
 }
 
 function resolvePathLegacy(elementId: string): (string | number)[] | null {
@@ -514,7 +503,7 @@ function updateArrayIndices(context: RenderContext, container: HTMLElement, star
       });
     });
 
-    updateRegistryEntries(context, oldPrefix, newPrefix, `/${oldIndex}`, `/${newIndex}`);
+    updateRegistryEntries(context, oldPrefix, newPrefix, oldIndex, newIndex);
   }
 }
 
@@ -542,14 +531,14 @@ function updateAPIndices(context: RenderContext, container: HTMLElement, startIn
              });
            });
 
-           updateRegistryEntries(context, oldPrefix, newPrefix, `/__ap_${oldIdx}`, `/__ap_${newIdx}`);
+           updateRegistryEntries(context, oldPrefix, newPrefix, `__ap_${oldIdx}`, `__ap_${newIdx}`);
          }
        }
     }
   }
 }
 
-function updateDataPaths(context: RenderContext, rootId: string, oldRootPath: string, newRootPath: string) {
+function updateDataPaths(context: RenderContext, rootId: string, oldRootPath: (string|number)[], newRootPath: (string|number)[]) {
   const idsToUpdate: string[] = [];
   for (const id of context.elementIdToDataPath.keys()) {
     if (id === rootId || id.startsWith(rootId + '.')) {
@@ -559,18 +548,18 @@ function updateDataPaths(context: RenderContext, rootId: string, oldRootPath: st
   
   for (const id of idsToUpdate) {
     const currentPath = context.elementIdToDataPath.get(id)!;
-    if (currentPath.startsWith(oldRootPath)) {
-      const suffix = currentPath.substring(oldRootPath.length);
-      const nextPath = newRootPath + suffix;
+    if (currentPath.length >= oldRootPath.length && currentPath.slice(0, oldRootPath.length).every((v, i) => v === oldRootPath[i])) {
+      const suffix = currentPath.slice(oldRootPath.length);
+      const nextPath = [...newRootPath, ...suffix];
       
       context.elementIdToDataPath.set(id, nextPath);
-      context.dataPathRegistry.delete(currentPath);
-      context.dataPathRegistry.set(nextPath, id);
+      context.dataPathRegistry.delete(toRegistryKey(currentPath));
+      context.dataPathRegistry.set(toRegistryKey(nextPath), id);
     }
   }
 }
 
-function updateDomNames(container: HTMLElement, oldPath: string, newPath: string) {
+function updateDomNames(container: HTMLElement, oldPath: (string|number)[], newPath: (string|number)[]) {
   const oldNamePrefix = getName(oldPath);
   const newNamePrefix = getName(newPath);
   
@@ -586,7 +575,7 @@ function updateDomNames(container: HTMLElement, oldPath: string, newPath: string
   });
 }
 
-function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPrefix: string, oldPathSuffix: string, newPathSuffix: string) {
+function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPrefix: string, oldSegment: string|number, newSegment: string|number) {
   const keysToMove: string[] = [];
   for (const key of context.nodeRegistry.keys()) {
     if (key === oldPrefix || key.startsWith(oldPrefix + '.')) {
@@ -595,9 +584,10 @@ function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPre
   }
 
   const rootOldPath = context.elementIdToDataPath.get(oldPrefix);
-  let rootNewPath: string | undefined;
-  if (rootOldPath && rootOldPath.endsWith(oldPathSuffix)) {
-    rootNewPath = rootOldPath.substring(0, rootOldPath.length - oldPathSuffix.length) + newPathSuffix;
+  let rootNewPath: (string|number)[] | undefined;
+  
+  if (rootOldPath && rootOldPath[rootOldPath.length - 1] === oldSegment) {
+    rootNewPath = [...rootOldPath.slice(0, -1), newSegment];
   }
 
   for (const oldKey of keysToMove) {
@@ -611,18 +601,18 @@ function updateRegistryEntries(context: RenderContext, oldPrefix: string, newPre
 
     const oldPath = context.elementIdToDataPath.get(oldKey);
     if (oldPath) {
-      let newPath = oldPath;
-      if (rootOldPath && rootNewPath && oldPath.startsWith(rootOldPath)) {
-        newPath = rootNewPath + oldPath.substring(rootOldPath.length);
-      } else if (oldPath.endsWith(oldPathSuffix)) {
-         newPath = oldPath.substring(0, oldPath.length - oldPathSuffix.length) + newPathSuffix;
+      let newPath = [...oldPath];
+      if (rootOldPath && rootNewPath && oldPath.length >= rootOldPath.length && oldPath.slice(0, rootOldPath.length).every((v, i) => v === rootOldPath[i])) {
+        newPath = [...rootNewPath, ...oldPath.slice(rootOldPath.length)];
+      } else if (oldPath[oldPath.length - 1] === oldSegment) {
+         newPath = [...oldPath.slice(0, -1), newSegment];
       }
       
       context.elementIdToDataPath.set(newKey, newPath);
       context.elementIdToDataPath.delete(oldKey);
       
-      context.dataPathRegistry.delete(oldPath);
-      context.dataPathRegistry.set(newPath, newKey);
+      context.dataPathRegistry.delete(toRegistryKey(oldPath));
+      context.dataPathRegistry.set(toRegistryKey(newPath), newKey);
     }
   }
 }
@@ -634,7 +624,8 @@ function findElementIdForPath(context: RenderContext, ajvPath: string): string |
   const rootNode = context.rootNode;
   const safeTitle = rootNode.title.replace(/[^a-zA-Z0-9]/g, '');
   const rootSegment = rootNode.key || safeTitle || 'root';
-  const fullPath = `/${rootSegment}${ajvPath}`;
+  const rootSegmentEscaped = rootSegment.replace(/~/g, '~0').replace(/\//g, '~1');
+  const fullPath = '/' + rootSegmentEscaped + ajvPath;
 
   // 1. Direct lookup (works for static paths)
   if (context.dataPathRegistry.has(fullPath)) {
@@ -670,7 +661,8 @@ function findElementIdForPath(context: RenderContext, ajvPath: string): string |
           const keyInputId = `${rowId}_key`;
           const keyInput = document.getElementById(keyInputId) as HTMLInputElement;
           
-          if (keyInput && keyInput.value === ajvSeg) {
+          const unescapedAjvSeg = ajvSeg.replace(/~1/g, '/').replace(/~0/g, '~');
+          if (keyInput && keyInput.value === unescapedAjvSeg) {
             continue; // Match found via DOM lookup
           }
         }

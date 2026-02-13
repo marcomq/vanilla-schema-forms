@@ -17,7 +17,7 @@ export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
  * @param formContainer - The HTML element to render the form into.
  */
 export function renderForm(formContainer: HTMLElement, context: RenderContext) {
-  const node = renderNode(context, context.rootNode, "", false, "");
+  const node = renderNode(context, context.rootNode, "", false, []);
   const form = domRenderer.renderFormWrapper(node);
   
   formContainer.innerHTML = '';
@@ -43,14 +43,12 @@ export function findCustomRenderer(context: RenderContext, elementId: string): C
   return bestMatch;
 }
 
-export function getName(dataPath: string): string {
-  if (!dataPath) return "";
-  const parts = dataPath.split('/').filter(p => p !== "");
-  if (parts.length === 0) return "";
+export function getName(dataPath: (string | number)[]): string {
+  if (!dataPath || dataPath.length === 0) return "";
 
   // If skipping root, and we have more than one part, drop the first one.
   // If there's only one part, it's the root itself, which we may need as the name.
-  const finalParts = CONFIG.html?.skipRootFromName && parts.length > 1 ? parts.slice(1) : parts;
+  const finalParts = CONFIG.html?.skipRootFromName && dataPath.length > 1 ? dataPath.slice(1) : dataPath;
 
   if (finalParts.length === 0) {
     return "";
@@ -60,7 +58,20 @@ export function getName(dataPath: string): string {
   return head + tail.map(p => `[${p}]`).join('');
 }
 
-export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: string = ""): Node {
+export function toRegistryKey(path: (string | number)[]): string {
+  return '/' + path.map(p => String(p).replace(/~/g, '~0').replace(/\//g, '~1')).join('/');
+}
+
+/**
+ * Recursively renders a FormNode into a DOM node.
+ * @param context - The render context providing configuration and registry access.
+ * @param node - The FormNode to render.
+ * @param path - The path from the root node to the current node, used for custom renderer lookups.
+ * @param headless - Whether to render a headless node (i.e., a node without a corresponding DOM element).
+ * @param dataPath - The data path from the root node to the current node, used for dataPathRegistry lookups.
+ * @returns A DOM node representing the rendered FormNode.
+ */
+export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: (string | number)[] = []): Node {
   let segment = node.key;
   if (!segment) {
     // If no key (e.g. root or oneOf variant), use a prefixed title to avoid collision
@@ -72,8 +83,8 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   const elementId = path ? `${path}.${segment}` : segment;
   
   // Ensure root dataPath includes the root segment so that getName() produces "Root[prop]" instead of "prop"
-  if (!path && !dataPath) {
-    dataPath = `/${segment}`;
+  if (!path && dataPath.length === 0) {
+    dataPath = [segment];
   }
   const name = getName(dataPath);
 
@@ -92,7 +103,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   // If they register, they overwrite the parent's entry, breaking validation message mapping,
   // because the headless node itself has no validation placeholder.
   if (!headless) {
-    context.dataPathRegistry.set(dataPath, elementId);
+    context.dataPathRegistry.set(toRegistryKey(dataPath), elementId);
   }
   context.elementIdToDataPath.set(elementId, dataPath);
 
@@ -122,7 +133,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
       return domRenderer.renderNumber(safeNode, elementId, name);
     }
     case "boolean": return domRenderer.renderBoolean(node, elementId, name);
-    case "object": return renderObject(context, node, path, elementId, headless, dataPath);
+    case "object": return renderObject(context, node, elementId, headless, dataPath);
     case "array": {
       const isFixedSize = !!(node.prefixItems && node.prefixItems.length > 0 && !node.items);
       const arrayWrapper = domRenderer.renderArray(node, elementId, { isFixedSize });
@@ -141,7 +152,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
             const hydratedItem = hydrateNodeWithData(itemNode, itemData);
             // Don't force title for prefixItems to allow label-less rendering
             hydratedItem.key = String(index);
-            const itemDataPath = `${dataPath}/${index}`;
+            const itemDataPath = [...dataPath, index];
             const renderedItem = renderNode(context, hydratedItem, elementId, false, itemDataPath);
             itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: false }));
           }
@@ -155,7 +166,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
           const itemNode = hydrateNodeWithData(node.items!, itemData);
           itemNode.title = itemNode.title || `Item ${realIndex + 1}`;
           itemNode.key = String(realIndex);
-          const itemDataPath = `${dataPath}/${realIndex}`;
+          const itemDataPath = [...dataPath, realIndex];
           const renderedItem = renderNode(context, itemNode, elementId, false, itemDataPath);
           itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: true }));
         });
@@ -167,7 +178,17 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
 }
 
-export function renderObject(context: RenderContext, node: FormNode, _path: string, elementId: string, headless: boolean, dataPath: string, options?: { additionalProperties?: { title?: string | null, keyPattern?: string } }): Node {
+/**
+ * Render an object node with its oneOf, properties and additional properties.
+ * @param context - The render context
+ * @param node - The object node to render
+ * @param elementId - The ID of the element to render into
+ * @param headless - Whether to render the node as headless (i.e. without a border/container)
+ * @param dataPath - The data path of the node
+ * @param options - Optional options for rendering additional properties
+ * @returns The rendered node
+ */
+export function renderObject(context: RenderContext, node: FormNode, elementId: string, headless: boolean, dataPath: (string | number)[], options?: { additionalProperties?: { title?: string | null, keyPattern?: string } }): Node {
   const name = getName(dataPath);
   const oneOf = domRenderer.renderOneOf(node, elementId, name);
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
@@ -189,12 +210,11 @@ export function renderObject(context: RenderContext, node: FormNode, _path: stri
         valueNode.key = undefined;
 
         const apId = `${elementId}.__ap_${apIndex}`;
-        const apDataPath = `${dataPath}/${key}`;
+        const apDataPath = [...dataPath, key];
 
         // Render headless to avoid double borders (AP row already has border/container)
         const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
-        // Manually register data path because renderNode skips it for headless nodes
-        context.dataPathRegistry.set(apDataPath, apId);
+        context.dataPathRegistry.set(toRegistryKey(apDataPath), apId);
         context.elementIdToDataPath.set(apId, apDataPath);
         
         const uniqueId = `${apId}_key`;
@@ -218,14 +238,24 @@ export function renderObject(context: RenderContext, node: FormNode, _path: stri
   return domRenderer.renderObject(node, elementId, content);
 }
 
-export function renderProperties(context: RenderContext, properties: { [key: string]: FormNode }, parentId: string, parentDataPath: string = ""): Node {
+/**
+ * Renders a list of properties in a given node.
+ * The properties are first grouped according to the given layout configuration.
+ * The remaining properties are rendered in alphabetical order.
+ * @param context - The render context providing configuration and registry access.
+ * @param properties - A map of property keys to their corresponding FormNode objects.
+ * @param parentId - The ID of the parent node.
+ * @param parentDataPath - The data path from the root node to the parent node.
+ * @returns A DOM node representing the rendered properties.
+ */
+export function renderProperties(context: RenderContext, properties: { [key: string]: FormNode }, parentId: string, parentDataPath: (string | number)[] = []): Node {
   const groups = context.config.layout.groups[parentId] || [];
   const groupedKeys = new Set(groups.flatMap((g: { keys: string[]; title?: string; className?: string; }) => g.keys));
  
   // Render groups
   const groupsHtml = domRenderer.renderFragment(groups.map((group: { keys: string[]; title?: string; className?: string; }) => {
     const groupContent = domRenderer.renderFragment(group.keys
-      .map(key => properties[key] ? renderNode(context, properties[key], parentId, false, `${parentDataPath}/${key}`) : domRenderer.renderFragment([]))
+      .map(key => properties[key] ? renderNode(context, properties[key], parentId, false, [...parentDataPath, key]) : domRenderer.renderFragment([]))
     );
     return domRenderer.renderLayoutGroup(group.title, groupContent, group.className);
   }));
@@ -265,7 +295,7 @@ export function renderProperties(context: RenderContext, properties: { [key: str
   });
 
   const remainingHtml = domRenderer.renderFragment(keys
-    .map(key => renderNode(context, properties[key], parentId, false, `${parentDataPath}/${key}`))
+    .map(key => renderNode(context, properties[key], parentId, false, [...parentDataPath, key]))
   );
 
   return domRenderer.renderFragment([groupsHtml, remainingHtml]);

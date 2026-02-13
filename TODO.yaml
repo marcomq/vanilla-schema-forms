@@ -8,13 +8,18 @@
 - id: TASK-005
   title: Robust Path Handling
   description: >-
-    Paths are concatenated strings (`parent + '.' + key`). This fails with keys 
-    containing dots or brackets. 
-    First step would be to add `name` attributes to input and select elements using bracket notation 
-    (e.g., root.childType.key should be  `root["childType"]["key"]`) to ensure compatibility with Rust Actix form parsing.
-    No change of id, if possible so that we can switch later when the names are fine.
+    **Problem:** The codebase currently uses multiple, fragile string-based path representations:
+    1. **UI Path (`path` in `renderNode`):** A dot-separated string for HTML `id`s (e.g., `root.prop`). Fails if keys contain dots.
+    2. **Data Path (`dataPath` in `renderNode`):** A slash-separated string for HTML `name` attributes and error mapping (e.g., `/root/prop`). Fails if keys contain slashes.
+    3. **Event Path (`resolvePath`):** Often reverse-engineered by splitting the UI Path string, which is a primary source of bugs.
+
+    **Plan:** Consolidate around a single, robust path representation.
+    1. **The "One Path":** The source of truth will be a `dataPathArray` of type `(string | number)[]` (e.g., `['root', 'prop', 0]`), which is unambiguous.
+    2. **Update `RenderContext`:** `elementIdToDataPath` will become `Map<string, (string | number)[]>`, linking an opaque element ID to its true data path array.
+    3. **Refactor `renderer.ts`:** `renderNode` will pass this array down recursively. `getName` will be updated to generate the HTML `name` attribute from this array. `dataPathRegistry` will be keyed by standard JSON Pointers (RFC 6901) derived from the array for robust validation error mapping.
+    4. **Refactor `events.ts`:** `resolvePath` will be simplified to a direct `Map` lookup, removing all fragile `split('.')` logic. Path update functions (for array reordering, etc.) will be refactored to manipulate arrays instead of strings.
   impact: Medium
-  status: Next
+  status: Planning
   affectedFiles:
     - "@src/state.ts"
     - "@src/renderer.ts"

@@ -10,7 +10,7 @@ import {
   renderNode,
   resolvePath,
   getName,
-} from "../src/index";
+} from "../../src/index";
 
 // Apply global I18N overrides
 setI18n({
