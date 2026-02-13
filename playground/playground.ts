@@ -30,6 +30,17 @@ import InputWidget from './InputWidget.svelte';
 // @ts-ignore
 import { mount } from 'svelte';
 
+/**
+ * Creates a custom renderer that wraps a Svelte component.
+ * The component is expected to receive the following props:
+ * - elementId: the ID of the HTML element to render into
+ * - node: the FormNode object to render
+ * - value: the default value of the node (can be null)
+ * - name: the name of the property to render (i.e. the key of the FormNode)
+ * The renderer returns the rendered HTML element.
+ * If the component renders a single child, that child is returned directly.
+ * Otherwise, the entire container is returned.
+ */
 function createSvelteRenderer(Component: any) {
   return {
     render: (node: any, path: string, elementId: string, dataPath: (string | number)[]) => {
@@ -108,7 +119,7 @@ domRenderer.renderFieldWrapper = (node, elementId, inputElement, wrapperClass) =
     config: `import RangeWidget from './RangeWidget.svelte';
 import InputWidget from './InputWidget.svelte';
 import { mount } from 'svelte';
-import { setCustomRenderers, createSvelteRenderer } from "../src/index";
+import { setCustomRenderers } from "../src/index";
 // we are just customizing title and priority, the rest is handled by default
 setCustomRenderers({
   title: createSvelteRenderer(InputWidget),
