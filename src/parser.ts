@@ -191,16 +191,18 @@ export function transformSchemaToFormNode(
         const propSchema = schemaObj.properties[propKey] as JSONSchema;
         const isPropRequired = schemaObj.required?.includes(propKey) || false;
         
+        let schemaToTransform = propSchema;
         // If the property key is the same as the parent's title (case-insensitive),
         // it's likely a wrapper for a oneOf variant. Don't give it a title.
         if (node.title && propKey.toLowerCase() === node.title.toLowerCase()) {
           const ps = propSchema as any;
           // Only clear title for complex types (objects/arrays) to avoid removing labels from primitives
           if (ps.type === 'object' || ps.type === 'array' || ps.properties || ps.items || ps.oneOf || ps.anyOf) {
-            ps.title = "";
+            schemaToTransform = { ...ps };
+            (schemaToTransform as any).title = "";
           }
         }
-        node.properties[propKey] = transformSchemaToFormNode(propSchema, propKey, depth + 1, isPropRequired);
+        node.properties[propKey] = transformSchemaToFormNode(schemaToTransform, propKey, depth + 1, isPropRequired);
       }
     }
     if (schemaObj.additionalProperties !== undefined) {

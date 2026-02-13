@@ -31,6 +31,7 @@ export function initValidator(schema: JSONSchema) {
     validateFn = ajv.compile(schema as any);
   } catch (e) {
     console.error("AJV Compilation Error:", e);
+    throw e;
   }
 }
 

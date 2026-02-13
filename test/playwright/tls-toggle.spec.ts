@@ -3,8 +3,6 @@ import { test, expect } from '@playwright/test';
 test('TLS toggle should show/hide options', async ({ page }) => {
   await page.goto('/');
 
-  // Add a route
-
   // Select 'mqtt' to make TLS section visible
   const inputSelector = page.locator('select[id$=".input__selector"]');
   await inputSelector.selectOption({ label: 'Mqtt' });

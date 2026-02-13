@@ -119,6 +119,10 @@ function resetAll() {
 
 async function loadExample(key: string) {
   let ex = EXAMPLES[key];
+  if (!ex) {
+    console.error(`Unknown example: ${key}`);
+    return;
+  }
   els.schema.value = JSON.stringify(ex.schema, null, 2);
   els.config.value = typeof ex.config === 'string' ? ex.config : JSON.stringify(ex.config, null, 2);
   els.data.value = JSON.stringify(ex.data, null, 2);
@@ -139,7 +143,6 @@ async function render() {
     // Try parsing config as JSON, fallback to JS eval
     try {
       config = els.config.value ? JSON.parse(els.config.value) : {};
-      console.log("json found");
     } catch {
 
       let code = els.config.value;
@@ -152,14 +155,11 @@ async function render() {
         // Try as expression (wrapped in parens to ensure it's an expression, not a block, and to fail on multiple statements)
         const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', `return (${code});`);
         config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
-        console.log("js 1 found");
       } catch (e) {
         // code += "\nif (typeof CUSTOM_RENDERERS !== 'undefined') { setCustomRenderers(CUSTOM_RENDERERS); }";
         const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', code);
         config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
-        console.log("js 2 found");
       }
-      console.log(config);
     }
   } catch (e) {
     alert("Invalid JSON or JS in one of the editors: " + `${e}`,);

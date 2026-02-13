@@ -19,7 +19,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../docs', // Output to docs/ for GitHub Pages
+    outDir: '../../docs', // Output to docs/ for GitHub Pages
     emptyOutDir: true
   }
 });
