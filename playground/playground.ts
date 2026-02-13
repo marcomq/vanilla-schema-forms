@@ -212,6 +212,10 @@ function resetAll() {
 
 async function loadExample(key: string) {
   let ex = EXAMPLES[key];
+  if (!ex) {
+    console.error(`Unknown example: ${key}`);
+    return;
+  }
   els.schema.value = JSON.stringify(ex.schema, null, 2);
   els.config.value = typeof ex.config === 'string' ? ex.config : JSON.stringify(ex.config, null, 2);
   els.data.value = JSON.stringify(ex.data, null, 2);
@@ -270,6 +274,9 @@ async function render() {
     form.validate().then((errors: any) => {
       els.errors.textContent = errors ? JSON.stringify(errors, null, 2) : "Valid";
       els.errors.className = errors ? "alert alert-danger border" : "alert alert-success border";
+    }).catch((err: any) => {
+      els.errors.textContent = "Validation error: " + String(err);
+      els.errors.className = "alert alert-danger border";
     });
   };
 

@@ -1,14 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { adaptUiSchema, UISchemaElement } from '../src/ui-schema-adapter';
-import { CONFIG, DEFAULT_CONFIG } from '../src/config';
+import { CONFIG, resetConfig } from '../src/config';
 
 describe('ui-schema-adapter', () => {
   beforeEach(() => {
-    // Reset CONFIG to defaults before each test
-    CONFIG.sorting = JSON.parse(JSON.stringify(DEFAULT_CONFIG.sorting));
-    CONFIG.layout = JSON.parse(JSON.stringify(DEFAULT_CONFIG.layout));
-    CONFIG.visibility = JSON.parse(JSON.stringify(DEFAULT_CONFIG.visibility));
-    CONFIG.parser = JSON.parse(JSON.stringify(DEFAULT_CONFIG.parser));
+    resetConfig();
   });
 
   it('should adapt HorizontalLayout to layout groups', () => {

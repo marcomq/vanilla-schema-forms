@@ -172,7 +172,11 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
 
     // Use the current elementId as the base path for the child option to ensure correct nesting
     const path = elementId!;
-    const parentDataPath = context.elementIdToDataPath.get(elementId!) || [];
+    const parentDataPath = context.elementIdToDataPath.get(elementId!);
+    if (!parentDataPath) {
+      console.warn(`[events] No data path found for element: ${elementId}`);
+      return;
+    }
     contentContainer.innerHTML = '';
     contentContainer.appendChild(renderNode(context, selectedNode, path, true, parentDataPath));
 

@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run tests
+        run: npm run test:run
+
       - name: Build Website
         run: npm run build:playground -- --base=/vanilla-schema-forms/
 
@@ -45,7 +48,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Adjust 'dist' to match your build script's output folder
-          path: './dist'
+          path: './docs'
 
       - name: Deploy to GitHub Pages
         id: deployment

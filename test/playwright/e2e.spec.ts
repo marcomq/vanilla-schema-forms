@@ -34,7 +34,6 @@ test.describe('Schema Form Mechanics', () => {
   test('OneOf (Polymorphism): Can switch endpoint types and render specific fields', async ({ page }) => {
 
     // 1. Find the "Input" selector. 
-    // Based on your HTML, the input selector is inside the route.
     // We look for the select that controls the "Input" field.
     // The schema has "input" as a property of Route.
     const inputSelector = page.locator('select[id$=".input__selector"]');

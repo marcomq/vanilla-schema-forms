@@ -14,7 +14,10 @@ export function h(tag: string, attrs: { [key: string]: any }, ...children: (stri
     } else if (key === 'className') {
       el.setAttribute('class', attrs[key]);
     } else {
-      el.setAttribute(key, attrs[key]);
+      const val = attrs[key];
+      if (val != null) {
+        el.setAttribute(key, String(val));
+      }
     }
   }
 

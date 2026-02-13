@@ -71,8 +71,7 @@ describe('Integration Tests', () => {
     const data = store.get();
     expect(data).toEqual({
       billing: {
-        street: "Main St",
-        city: undefined
+        street: "Main St"
       }
     });
   });

@@ -61,7 +61,11 @@ describe('Templates', () => {
     const element = domRenderer.renderSelect(node, 'select_id', node.enum as string[], "select_id");
     const html = (element as HTMLElement).outerHTML;
     
-    expect(html).toContain('<option value="blue" selected="true">blue</option>');
-    expect(html).toContain('<option value="red">red</option>');
+    const select = (element as HTMLElement).querySelector('select');
+    expect(select).not.toBeNull();
+    const selectedOption = select!.querySelector('option[selected]') as HTMLOptionElement;
+    expect(selectedOption?.value).toBe('blue');
+    const redOption = select!.querySelector('option[value="red"]') as HTMLOptionElement;
+    expect(redOption?.selected).toBeFalsy();
   });
 });

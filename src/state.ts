@@ -124,7 +124,11 @@ export class Store<T> {
 
   private notify(): void {
     for (const listener of this.listeners) {
-      listener(this.state);
+      try {
+        listener(this.state);
+      } catch (e) {
+        console.error('[Store] Listener error:', e);
+      }
     }
   }
 }

@@ -295,7 +295,7 @@ const advancedOptionsRenderer = {
             if (el) {
               const isHidden = el.style.display === "none";
               el.style.display = isHidden ? "block" : "none";
-              e.target.textContent = isHidden ? "Hide" : "Show more...";
+              e.currentTarget.textContent = isHidden ? "Hide" : "Show more...";
             }
           },
         },
@@ -331,10 +331,10 @@ const middlewaresRenderer = {
 
     // Helper to render a single item
     const renderItem = (itemData, index) => {
-      let selectedOption = node.items.oneOf[0];
+      let selectedOption = node.items.oneOf ? node.items.oneOf[0] : node.items;
       let selectedIndex = 0;
 
-      if (itemData && typeof itemData === "object") {
+      if (itemData && typeof itemData === "object" && node.items.oneOf) {
         const dataKeys = Object.keys(itemData);
         node.items.oneOf.forEach((opt, idx) => {
           if (opt.properties) {
@@ -418,8 +418,8 @@ const middlewaresRenderer = {
         type: "button",
         className: "btn btn-sm btn-outline-primary mt-2",
         onclick: (e) => {
-          e.target.style.display = "none";
-          const select = e.target.nextElementSibling;
+          e.currentTarget.style.display = "none";
+          const select = e.currentTarget.nextElementSibling;
           select.style.display = "inline-block";
           select.focus();
           if (select.showPicker) select.showPicker();
@@ -427,6 +427,8 @@ const middlewaresRenderer = {
       },
       "Add Middleware",
     );
+
+    if (!node.items.oneOf) return itemsContainer;
 
     const options = node.items.oneOf
       .map((option, index) => {

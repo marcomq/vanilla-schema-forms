@@ -1,13 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CONFIG, DEFAULT_CONFIG, setConfig } from '../src/config';
+import { CONFIG, DEFAULT_CONFIG, setConfig, resetConfig } from '../src/config';
 
 describe('Config', () => {
   beforeEach(() => {
-    // Reset CONFIG to defaults before each test
-    CONFIG.sorting = JSON.parse(JSON.stringify(DEFAULT_CONFIG.sorting));
-    CONFIG.visibility = JSON.parse(JSON.stringify(DEFAULT_CONFIG.visibility));
-    CONFIG.parser = JSON.parse(JSON.stringify(DEFAULT_CONFIG.parser));
-    CONFIG.layout = JSON.parse(JSON.stringify(DEFAULT_CONFIG.layout));
+    resetConfig();
   });
 
   it('should merge sorting configuration', () => {

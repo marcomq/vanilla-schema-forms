@@ -36,7 +36,6 @@ test.describe('Additional Properties & Path Resolution', () => {
 
   test('should handle oneOf switching within additional properties', async ({ page }) => {
     // 1. Add Property
-    // await page.locator('.js-btn-add-ap').click();
     const apRow = page.locator('.js-ap-row').first();
     await apRow.locator('.js-ap-key').fill('Route1');
 

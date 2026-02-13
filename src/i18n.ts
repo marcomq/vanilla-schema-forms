@@ -25,13 +25,13 @@ export function resetI18n() {
 }
 
 export function getUiText(key: string, defaultText: string = ""): string {
-  return currentI18nMap.ui[key] || defaultText;
+  return currentI18nMap.ui[key] ?? defaultText;
 }
 
 export function getKeyText(key: string, defaultText: string = ""): string {
-  return currentI18nMap.keys[key] || defaultText;
+  return currentI18nMap.keys[key] ?? defaultText;
 }
 
 export function getDescriptionText(key: string, defaultText: string = ""): string {
-  return currentI18nMap.descriptions[key] || defaultText;
+  return currentI18nMap.descriptions[key] ?? defaultText;
 }

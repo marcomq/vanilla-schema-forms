@@ -135,7 +135,7 @@ export async function init(
     });
 
     // Trigger initial data change
-    if (typeof onDataChange === 'function' && finalData !== undefined && finalData !== null) {
+    if (typeof onDataChange === 'function' && finalData !== undefined) {
       onDataChange(finalData);
     }
 

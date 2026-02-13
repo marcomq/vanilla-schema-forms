@@ -32,6 +32,12 @@ type PartialConfig = {
   [K in keyof ConfigType]?: Partial<ConfigType[K]>;
 };
 
+/**
+ * Shallow-merges partial config into the global CONFIG.
+ * Only top-level keys within each section are merged (one-level spread).
+ * Nested objects (e.g., layout.groups entries) are replaced, not deep-merged.
+ * Callers that need additive updates should read CONFIG first and merge manually.
+ */
 export function setConfig(config: PartialConfig) {
   for (const key in config) {
     if (Object.prototype.hasOwnProperty.call(config, key) && Object.prototype.hasOwnProperty.call(CONFIG, key)) {

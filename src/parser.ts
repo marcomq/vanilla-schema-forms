@@ -187,20 +187,20 @@ export function transformSchemaToFormNode(
   if (node.type === "object") {
     if (schemaObj.properties) {
       node.properties = {};
-      for (const key in schemaObj.properties) {
-        const propSchema = schemaObj.properties[key] as JSONSchema;
-        const isPropRequired = schemaObj.required?.includes(key) || false;
+      for (const propKey in schemaObj.properties) {
+        const propSchema = schemaObj.properties[propKey] as JSONSchema;
+        const isPropRequired = schemaObj.required?.includes(propKey) || false;
         
         // If the property key is the same as the parent's title (case-insensitive),
         // it's likely a wrapper for a oneOf variant. Don't give it a title.
-        if (node.title && key.toLowerCase() === node.title.toLowerCase()) {
+        if (node.title && propKey.toLowerCase() === node.title.toLowerCase()) {
           const ps = propSchema as any;
           // Only clear title for complex types (objects/arrays) to avoid removing labels from primitives
           if (ps.type === 'object' || ps.type === 'array' || ps.properties || ps.items || ps.oneOf || ps.anyOf) {
             ps.title = "";
           }
         }
-        node.properties[key] = transformSchemaToFormNode(propSchema, key, depth + 1, isPropRequired);
+        node.properties[propKey] = transformSchemaToFormNode(propSchema, propKey, depth + 1, isPropRequired);
       }
     }
     if (schemaObj.additionalProperties !== undefined) {
@@ -236,7 +236,7 @@ function getConstOrEnum(schema: JSONSchema): string | undefined {
   if (typeof schema === "boolean") return undefined;
   const schemaObj = schema as Exclude<JSONSchema, boolean>;
 
-  if ("const" in schemaObj) return String(schemaObj.const);
+  if (schemaObj.const !== undefined) return String(schemaObj.const);
   if (Array.isArray(schemaObj.enum) && schemaObj.enum.length === 1) return String(schemaObj.enum[0]);
   
   if (schemaObj.allOf) {
@@ -269,7 +269,7 @@ function inferTitle(schema: JSONSchema, index: number): string {
       const prop = schemaObj.properties[key] as JSONSchema;
       const val = getConstOrEnum(prop);
       if (val) return val;
-      if (typeof prop === "object" && prop.default) return String(prop.default);
+      if (typeof prop === "object" && prop.default !== undefined) return String(prop.default);
     }
   }
 

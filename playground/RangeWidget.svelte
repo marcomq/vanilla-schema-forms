@@ -11,8 +11,8 @@
     class="form-range" 
     id={elementId} 
     name={name} 
-    min={node.minimum || 0} 
-    max={node.maximum || 10} 
+    min={node.minimum ?? 0} 
+    max={node.maximum ?? 10} 
     bind:value={value} 
   />
 </div>

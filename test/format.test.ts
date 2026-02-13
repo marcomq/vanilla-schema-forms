@@ -34,9 +34,8 @@ describe('Format Support', () => {
     
     // Helper to extract type attribute from HTML string
     const getType = (node: Node) => {
-      const html = (node as HTMLElement).outerHTML;
-      const match = html.match(/<(?:input|vsf-input)[^>]*type="([^"]+)"/);
-      return match ? match[1] : null;
+      const input = (node as HTMLElement).querySelector('input') as HTMLInputElement | null;
+      return input ? input.type : null;
     };
 
     const emailNode = renderNode(context, rootNode.properties!['emailField'], 'root.emailField');

@@ -159,6 +159,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
         });
       }
       // Render existing items if data is present
+      // Note: prefixItems are rendered above. This block handles the variable items part of the array.
       if (Array.isArray(node.defaultValue) && node.items && itemsContainer) {
         const startIndex = node.prefixItems ? node.prefixItems.length : 0;
         node.defaultValue.slice(startIndex).forEach((itemData: any, index: number) => {
@@ -204,7 +205,7 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
       Object.keys(node.defaultValue).forEach((key) => {
         if (definedProps.has(key)) return;
 
-        const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string' } as FormNode;
+        const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: '' } as FormNode;
         const valueNode = hydrateNodeWithData(valueSchema, node.defaultValue[key]);
         valueNode.title = key;
         valueNode.key = undefined;

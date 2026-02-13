@@ -112,8 +112,8 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     if (node.required) attrs.required = true;
     if (node.pattern) attrs.pattern = node.pattern;
-    if (node.minLength) attrs.minlength = node.minLength;
-    if (node.maxLength) attrs.maxlength = node.maxLength;
+    if (node.minLength !== undefined) attrs.minlength = node.minLength;
+    if (node.maxLength !== undefined) attrs.maxlength = node.maxLength;
     if (node.readOnly) attrs.disabled = true;
 
     if (node.format) {
@@ -358,7 +358,7 @@ export const domRenderer: TemplateRenderer<Node> = {
     const removeButton = h('button', {
       className: `${rendererConfig.classes.buttonDanger} ${rendererConfig.triggers.removeAdditionalProperty}`,
       type: 'button'
-    }, 'X');
+    }, getUiText("remove_property", "X"));
 
     return h(rendererConfig.elements.additionalPropertyItem, {
       className: `${rendererConfig.classes.additionalPropertyItem} ${rendererConfig.triggers.additionalPropertyRow}`
