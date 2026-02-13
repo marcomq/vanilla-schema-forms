@@ -227,15 +227,12 @@ const advancedOptionsRenderer = {
     // Fallback for primitives (e.g. "static" endpoint which is a string, not an object)
     if (node.type !== "object") {
       if (node.type === "string")
-        return domRenderer.renderString(node, elementId);
         return domRenderer.renderString(node, elementId, dataPath);
       if (node.type === "boolean")
-        return domRenderer.renderBoolean(node, elementId);
         return domRenderer.renderBoolean(node, elementId, dataPath);
       if (node.type === "number" || node.type === "integer") {
         const safeNode =
           node.defaultValue === null ? { ...node, defaultValue: "" } : node;
-        return domRenderer.renderNumber(safeNode, elementId);
         return domRenderer.renderNumber(safeNode, elementId, dataPath);
       }
       return domRenderer.renderUnsupported(node);

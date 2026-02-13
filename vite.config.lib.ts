@@ -13,10 +13,11 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
-      external: ['ajv'],
+      external: (id) => /^ajv(\/|$)/.test(id),
       output: {
         globals: {
-          ajv: 'Ajv'
+          ajv: 'Ajv',
+          'ajv/dist/2020.js': 'Ajv'
         }
       }
     }

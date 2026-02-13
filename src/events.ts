@@ -251,7 +251,8 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       itemNode = hydrateNodeWithData(itemNode, defaultValue);
       itemNode.key = String(index);
 
-      const parentDataPath = context.elementIdToDataPath.get(elementId!) || [];
+      const parentDataPath = context.elementIdToDataPath.get(elementId!);
+      if (!parentDataPath) return;
       const itemDataPath = [...parentDataPath, index];
       const innerNode = renderNode(context, itemNode, elementId!, false, itemDataPath);
       const itemNodeWrapper = domRenderer.renderArrayItem(innerNode, { isRemovable: true });
@@ -334,7 +335,9 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
 
     // Use defaultKey if available, otherwise fallback to internal ID to ensure unique path
     const pathSegment = defaultKey || `__ap_${index}`;
-    const apDataPath = [...(context.elementIdToDataPath.get(elementId!) || []), pathSegment];
+    const parentDataPath = context.elementIdToDataPath.get(elementId!);
+    if (!parentDataPath) return;
+    const apDataPath = [...parentDataPath, pathSegment];
     const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
     context.dataPathRegistry.set(toRegistryKey(apDataPath), apId);
     context.elementIdToDataPath.set(apId, apDataPath);

@@ -1,8 +1,5 @@
 <script>
-  export let elementId;
-  export let node;
-  export let value;
-  export let name;
+  let { elementId, node, value, name } = $props();
 </script>
 
 <div class="mb-3">

@@ -22,7 +22,6 @@
   "include": [
     "src",
     "test/**/*.ts",
-    "examples/customization.js",
-    "test/playwright/e2e.spec.ts"
+    "playground/customization.js"
   ]
 }

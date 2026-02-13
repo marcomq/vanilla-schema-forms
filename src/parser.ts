@@ -236,7 +236,7 @@ function getConstOrEnum(schema: JSONSchema): string | undefined {
   if (typeof schema === "boolean") return undefined;
   const schemaObj = schema as Exclude<JSONSchema, boolean>;
 
-  if (schemaObj.const) return String(schemaObj.const);
+  if ("const" in schemaObj) return String(schemaObj.const);
   if (Array.isArray(schemaObj.enum) && schemaObj.enum.length === 1) return String(schemaObj.enum[0]);
   
   if (schemaObj.allOf) {

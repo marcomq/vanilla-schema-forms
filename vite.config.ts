@@ -12,7 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Develop against source, not dist
-      'vanilla-schema-forms': resolve(__dirname, '../src/index.ts')
+      'vanilla-schema-forms': resolve(__dirname, 'src/index.ts')
     }
   },
   build: {
