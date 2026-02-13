@@ -73,8 +73,26 @@ export const rendererConfig = {
     apValueWrapper: 'flex-grow-1 ap-value-wrapper',
     objectWrapper: 'ui_obj',
     arrayWrapper: 'ui_arr',
-    nullWrapper: 'ui_null'
+    nullWrapper: 'ui_null',
+    compactRow: 'row mb-2',
+    compactLabel: 'col-sm-3 col-form-label small',
+    compactContent: 'col-sm-9',
+    compactDescriptionWrapper: 'small text-muted',
+    compactErrorPlaceholder: 'col-12'
   }
+};
+
+export const renderCompactFieldWrapper = (node: FormNode, elementId: string, input: Node, className?: string): Node => {
+  const forId = (node as any)._inputId || elementId;
+  const label = node.title ? h('label', { className: rendererConfig.classes.compactLabel, for: forId }, node.title, node.required ? h('span', { className: rendererConfig.classes.textDanger }, '*') : '') : null;
+  const desc = node.description ? h('span', { className: rendererConfig.classes.description }, node.description) : null;
+  const errorPlaceholder = h('div', { 'data-validation-for': elementId });
+
+  return h('div', { className: className || rendererConfig.classes.compactRow, 'data-element-id': elementId },
+    label || '',
+    h('div', { className: rendererConfig.classes.compactContent }, input, h('div', { className: rendererConfig.classes.compactDescriptionWrapper }, desc || '')),
+    h('div', { className: rendererConfig.classes.compactErrorPlaceholder }, errorPlaceholder)
+  );
 };
 
 export const domRenderer: TemplateRenderer<Node> = {

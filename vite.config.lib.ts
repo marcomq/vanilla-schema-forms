@@ -13,7 +13,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
-      external: (id) => id === 'ajv' || id.startsWith('ajv/'),
+      external: ['ajv'],
       output: {
         globals: {
           ajv: 'Ajv',

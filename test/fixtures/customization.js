@@ -10,6 +10,10 @@ import {
   renderNode,
   resolvePath,
   getName,
+  createTypeSelectArrayRenderer,
+  createAdvancedOptionsRenderer,
+  createOptionalRenderer,
+  renderCompactFieldWrapper,
 } from "../../src/index";
 
 // Apply global I18N overrides
@@ -67,101 +71,37 @@ setConfig({
 });
 
 // Override renderFieldWrapper for compact layout
-if (!domRenderer.renderFieldWrapper.isCompact) {
-  const originalRenderFieldWrapper = domRenderer.renderFieldWrapper;
-  domRenderer.renderFieldWrapper = (
+const originalRenderFieldWrapper = domRenderer.renderFieldWrapper;
+domRenderer.renderFieldWrapper = (
+  node,
+  elementId,
+  inputElement,
+  wrapperClass,
+) => {
+  if (
+    ["string", "number", "integer", "boolean"].includes(node.type) ||
+    node.enum
+  ) {
+    return renderCompactFieldWrapper(node, elementId, inputElement);
+  }
+  return originalRenderFieldWrapper(
     node,
     elementId,
     inputElement,
     wrapperClass,
-  ) => {
-    // Apply compact style only for simple types
-    if (
-      ["string", "number", "integer", "boolean"].includes(node.type) ||
-      node.enum
-    ) {
-      const label = node.title
-        ? h(
-            "label",
-            { className: "col-sm-3 col-form-label small", for: elementId },
-            node.title,
-            node.required ? h("span", { className: "text-danger" }, "*") : "",
-          )
-        : null;
-      const desc = node.description
-        ? h("span", { className: "form-text" }, node.description)
-        : null;
-      const errorPlaceholder = h("div", { "data-validation-for": elementId });
-
-      return h(
-        "div",
-        { className: "row mb-2", "data-element-id": elementId },
-        label,
-        h(
-          "div",
-          { className: "col-sm-9" },
-          inputElement,
-          h("div", { className: "small text-muted" }, desc || ""),
-        ),
-        h("div", { className: "col-12" }, errorPlaceholder),
-      );
-    }
-    return originalRenderFieldWrapper(
-      node,
-      elementId,
-      inputElement,
-      wrapperClass,
-    );
-  };
-  domRenderer.renderFieldWrapper.isCompact = true;
-}
+  );
+};
 
 /**
  * Custom renderer for TLS configuration.
  * It renders a checkbox for the 'required' property and toggles the visibility of other properties.
  */
+const tlsBaseRenderer = createOptionalRenderer("required");
 export const tlsRenderer = {
   render: (node, path, elementId, dataPath, context) => {
-    const requiredProp = node.properties?.["required"];
-
-    // Fallback to standard object rendering if 'required' property is missing
-    if (!requiredProp) {
-      return renderObject(context, node, elementId, false, dataPath);
-    }
-
-    const otherProps = { ...node.properties };
-    delete otherProps["required"];
-    const name = getName([...dataPath, "required"]);
-
-    const requiredId = `${elementId}.required`;
-    const checkbox = domRenderer.renderBoolean(
-      requiredProp,
-      requiredId,
-      name,
-      `data-toggle-target="${elementId}-options"`
-    );
-    const optionsContent = renderProperties(
-      context,
-      otherProps,
-      elementId,
-      dataPath,
-    );
-
-    return h(
-      "fieldset",
-      { className: "border p-3 rounded mb-3 ui_tls", id: elementId },
-      h("legend", { className: "h6" }, node.title),
-      checkbox,
-      h(
-        "div",
-        {
-          id: `${elementId}-options`,
-          style: "display: none;",
-          className: "mt-3",
-        },
-        optionsContent,
-      ),
-    );
+    const element = tlsBaseRenderer.render(node, path, elementId, dataPath, context);
+    if (element && element.classList) element.classList.add("ui_tls");
+    return element;
   },
 };
 
@@ -222,289 +162,26 @@ export const routesRenderer = {
 };
 
 // Advanced Options Renderer (Collapse)
-const advancedOptionsRenderer = {
-  render: (node, path, elementId, dataPath, context) => {
-    // Fallback for primitives (e.g. "static" endpoint which is a string, not an object)
-    if (node.type !== "object") {
-      if (node.type === "string")
-        return domRenderer.renderString(node, elementId, dataPath);
-      if (node.type === "boolean")
-        return domRenderer.renderBoolean(node, elementId, dataPath);
-      if (node.type === "number" || node.type === "integer") {
-        const safeNode =
-          node.defaultValue === null ? { ...node, defaultValue: "" } : node;
-        return domRenderer.renderNumber(safeNode, elementId, dataPath);
-      }
-      return domRenderer.renderUnsupported(node);
-    }
-
-    const visibleProps = {};
-    const advancedProps = {};
-    const alwaysVisible = new Set([
-      "queue",
-      "group_id",
-      "topic",
-      "stream",
-      "subject",
-      "topic_arn",
-      "collection",
-      "queue_url",
-      "endpoint_url",
-    ]);
-
-    if (node.properties) {
-      Object.keys(node.properties).forEach((key) => {
-        const prop = node.properties[key];
-        if (prop.required || alwaysVisible.has(key)) {
-          visibleProps[key] = prop;
-        } else {
-          advancedProps[key] = prop;
-        }
-      });
-    }
-
-    const visibleContent = renderProperties(
-      context,
-      visibleProps,
-      elementId,
-      dataPath,
-    );
-
-    let advancedContent = null;
-    let toggleBtn = null;
-
-    if (Object.keys(advancedProps).length > 0) {
-      const optionsId = `${elementId}-options`;
-      advancedContent = h(
-        "div",
-        {
-          id: optionsId,
-          style: "display: none;",
-          className: "",
-        },
-        renderProperties(context, advancedProps, elementId, dataPath),
-      );
-
-      toggleBtn = h(
-        "button",
-        {
-          type: "button",
-          className: "btn btn-sm btn-link p-0 text-decoration-none mt-2",
-          onclick: (e) => {
-            const el = document.getElementById(optionsId);
-            if (el) {
-              const isHidden = el.style.display === "none";
-              el.style.display = isHidden ? "block" : "none";
-              e.currentTarget.textContent = isHidden ? "Hide" : "Show more...";
-            }
-          },
-        },
-        "Show more...",
-      );
-    }
-
-    return h(
-      "fieldset",
-      { className: "border p-3 rounded mb-3 ui_obj", id: elementId },
-      h("legend", { className: "h6" }, node.title),
-      node.description
-        ? h("div", { className: "form-text mb-3" }, node.description)
-        : null,
-      visibleContent,
-      toggleBtn,
-      advancedContent,
-    );
-  },
-};
+const advancedOptionsRenderer = createAdvancedOptionsRenderer([
+  "queue",
+  "group_id",
+  "topic",
+  "stream",
+  "subject",
+  "topic_arn",
+  "collection",
+  "queue_url",
+  "endpoint_url",
+]);
 
 /**
  * Custom renderer for Middlewares array.
  * Replaces the standard "Add Item" button with an "Add Middleware" button that opens a select.
  */
-const middlewaresRenderer = {
-  render: (node, path, elementId, dataPath, context) => {
-    const itemsContainerId = `${elementId}-items`;
-    const itemsContainer = h("div", {
-      className: "array-items",
-      id: itemsContainerId,
-    });
-
-    // Helper to render a single item
-    const renderItem = (itemData, index) => {
-      let selectedOption = node.items.oneOf ? node.items.oneOf[0] : node.items;
-      let selectedIndex = 0;
-
-      if (itemData && typeof itemData === "object" && node.items.oneOf) {
-        const dataKeys = Object.keys(itemData);
-        node.items.oneOf.forEach((opt, idx) => {
-          if (opt.properties) {
-            const propKeys = Object.keys(opt.properties);
-            if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) {
-              selectedOption = opt;
-              selectedIndex = idx;
-            }
-          }
-        });
-      }
-
-      let itemNodeToRender = selectedOption;
-      let itemPath = `${path}.${index}`;
-      let itemDataPath = [...dataPath, index];
-
-      // Unwrap single-property objects to reduce nesting
-      if (
-        selectedOption.properties &&
-        Object.keys(selectedOption.properties).length === 1
-      ) {
-        const propName = Object.keys(selectedOption.properties)[0];
-        itemNodeToRender = selectedOption.properties[propName];
-        itemPath = `${itemPath}.${propName}`;
-        itemDataPath = [...itemDataPath, propName];
-
-        if (!itemNodeToRender.title) {
-          itemNodeToRender = {
-            ...itemNodeToRender,
-            title:
-              selectedOption.title ||
-              propName.charAt(0).toUpperCase() + propName.slice(1),
-          };
-        }
-      } else {
-        itemNodeToRender = {
-          ...selectedOption,
-          title: selectedOption.title || `Middleware ${index + 1}`,
-        };
-      }
-
-      const itemEl = renderNode(
-        context,
-        itemNodeToRender,
-        itemPath,
-        false,
-        itemDataPath,
-      );
-      return domRenderer.renderArrayItem(itemEl);
-    };
-
-    // Render existing items
-    if (Array.isArray(node.defaultValue)) {
-      node.defaultValue.forEach((itemData, index) => {
-        itemsContainer.appendChild(renderItem(itemData, index));
-      });
-    }
-
-    // Check if parent is "null" type (Endpoint type is null)
-    // dataPath is an array including root. Store path excludes root.
-    const parentStorePath = dataPath.length > 1 ? dataPath.slice(1, -1) : [];
-    const parentData = context.store.getPath(parentStorePath);
-    const isNullType =
-      parentData && typeof parentData === "object" && "null" in parentData;
-
-    if (isNullType) {
-      return h(
-        "fieldset",
-        { className: "border p-3 rounded mb-3 ui_arr", id: elementId },
-        h("legend", { className: "h6" }, node.title),
-        node.description
-          ? h("div", { className: "form-text mb-3" }, node.description)
-          : null,
-        itemsContainer,
-      );
-    }
-
-    const addBtn = h(
-      "button",
-      {
-        type: "button",
-        className: "btn btn-sm btn-outline-primary mt-2",
-        onclick: (e) => {
-          e.currentTarget.style.display = "none";
-          const select = e.currentTarget.nextElementSibling;
-          select.style.display = "inline-block";
-          select.focus();
-          if (select.showPicker) select.showPicker();
-        },
-      },
-      "Add Middleware",
-    );
-
-    if (!node.items.oneOf) return itemsContainer;
-
-    const options = node.items.oneOf
-      .map((option, index) => {
-        if (
-          option.type === "null" ||
-          (option.title && option.title.toLowerCase() === "null")
-        )
-          return null;
-        return h(
-          "option",
-          { value: index },
-          option.title || `Option ${index + 1}`,
-        );
-      })
-      .filter((o) => o !== null);
-    options.unshift(
-      h(
-        "option",
-        { value: "", selected: true, disabled: true },
-        "Select type...",
-      ),
-    );
-
-    const select = h(
-      "select",
-      {
-        className: "form-select form-select-sm mt-2",
-        style: "display: none; width: auto;",
-        onchange: (e) => {
-          const selectedIndex = parseInt(e.target.value, 10);
-          if (isNaN(selectedIndex)) return;
-          e.target.value = "";
-          e.target.style.display = "none";
-          addBtn.style.display = "inline-block";
-
-          const currentPath = resolvePath(context, elementId);
-          if (!currentPath) return;
-
-          if (
-            currentPath[currentPath.length - 1] !== "middlewares" &&
-            (node.key === "middlewares" || elementId.endsWith(".middlewares"))
-          ) {
-            currentPath.push("middlewares");
-          }
-
-          const currentData = context.store.getPath(currentPath) || [];
-          const newItemIndex = currentData.length;
-          const selectedOption = node.items.oneOf[selectedIndex];
-          const newData = generateDefaultData(selectedOption);
-          context.store.setPath([...currentPath, newItemIndex], newData);
-
-          const wrapper = renderItem(newData, newItemIndex);
-          itemsContainer.appendChild(wrapper);
-        },
-        onblur: (e) => {
-          e.target.value = "";
-          e.target.style.display = "none";
-          addBtn.style.display = "inline-block";
-        },
-      },
-      ...options,
-    );
-
-    return h(
-      "fieldset",
-      { className: "border p-3 rounded mb-3 ui_arr", id: elementId },
-      h("legend", { className: "h6" }, node.title),
-      node.description
-        ? h("div", { className: "form-text mb-3" }, node.description)
-        : null,
-      itemsContainer,
-      addBtn,
-      select,
-    );
-  },
-};
+const middlewaresRenderer = createTypeSelectArrayRenderer({
+  buttonLabel: "Add Middleware",
+  itemLabel: "Middleware",
+});
 
 /**
  * Registry of custom renderers.

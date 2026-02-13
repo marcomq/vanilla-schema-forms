@@ -13,9 +13,14 @@ import {
   renderNode,
   domRenderer, 
   resolvePath,
-  getName
+  getName,
+  renderCompactFieldWrapper,
+  createTypeSelectArrayRenderer,
+  createAdvancedOptionsRenderer,
+  createOptionalRenderer
 } from '../src/index';
 import complexSchema from './schema.json';
+// @ts-ignore
 import complexCustomization from './customization.js?raw'; // ?raw supported by vite
 // Svelte is just required for the svelte example
 // @ts-ignore 
@@ -75,27 +80,9 @@ const EXAMPLES: Record<string, { schema: any, config: any, data: any }> = {
     config: `// Override renderFieldWrapper -> compact
 const originalRenderer = domRenderer.renderFieldWrapper;
 domRenderer.renderFieldWrapper = (node, elementId, inputElement, wrapperClass) => {
-  // Apply compact style only for simple types
-  const isSimple = ["string", "number", "integer", "boolean"].includes(node.type) || node.enum;
-  if (isSimple) {
-    return h("div", { className: "row mb-2", "data-element-id": elementId },
-      // Label
-      node.title ? h("label", { className: "col-sm-3 col-form-label small", for: elementId },
-        node.title,
-        node.required ? h("span", { className: "text-danger" }, "*") : ""
-      ) : null,
-      // Input & Description
-      h("div", { className: "col-sm-9" },
-        inputElement,
-        node.description ? h("div", { className: "small text-muted" }, node.description) : null
-      ),
-      // Validation Error Placeholder
-      h("div", { className: "col-12" }, 
-        h("div", { "data-validation-for": elementId })
-      )
-    );
+  if (["string", "number", "integer", "boolean"].includes(node.type) || node.enum) {
+    return renderCompactFieldWrapper(node, elementId, inputElement);
   }
-  
   return originalRenderer(node, elementId, inputElement, wrapperClass);
 };`,
     data: { firstName: "John", isActive: true }
@@ -237,15 +224,55 @@ async function render() {
     try {
       config = els.config.value ? JSON.parse(els.config.value) : {};
     } catch {
-
       let code = els.config.value;
       // Support for copy-pasting from JS modules (strip imports/exports)
-      code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '');
-      code = code.replace(/export\s+default\s+/g, 'return ');
-      code = code.replace(/export\s+/g, '');
-      
-      const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'InputWidget', 'mount', 'createSvelteRenderer', code);
-      config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers, RangeWidget, InputWidget, mount, createSvelteRenderer);
+      code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, "");
+      code = code.replace(/export\s+default\s+/g, "return ");
+      code = code.replace(/export\s+/g, "");
+
+      const fn = new Function(
+        "h",
+        "RangeWidget",
+        "InputWidget",
+        "mount",
+        "createSvelteRenderer",
+        "renderObject",
+        "renderProperties",
+        "renderNode",
+        "getName",
+        "resolvePath",
+        "generateDefaultData",
+        "domRenderer",
+        "setI18n",
+        "setConfig",
+        "setCustomRenderers",
+        "renderCompactFieldWrapper",
+        "createTypeSelectArrayRenderer",
+        "createAdvancedOptionsRenderer",
+        "createOptionalRenderer",
+        code,
+      );
+      config = fn(
+        h,
+        RangeWidget,
+        InputWidget,
+        mount,
+        createSvelteRenderer,
+        renderObject,
+        renderProperties,
+        renderNode,
+        getName,
+        resolvePath,
+        generateDefaultData,
+        domRenderer,
+        setI18n,
+        setConfig,
+        setCustomRenderers,
+        renderCompactFieldWrapper,
+        createTypeSelectArrayRenderer,
+        createAdvancedOptionsRenderer,
+        createOptionalRenderer,
+      );
     }
   } catch (e) {
     alert("Invalid JSON or JS in one of the editors: " + `${e}`,);

@@ -13,10 +13,15 @@ import {
   renderNode,
   domRenderer, 
   resolvePath,
-  getName
+  getName,
+  renderCompactFieldWrapper,
+  createTypeSelectArrayRenderer,
+  createAdvancedOptionsRenderer,
+  createOptionalRenderer
 } from '../../src/index';
 import defaultSchema from './schema.json';
 import defaultCustomization from './customization.js?raw'; // ?raw supported by vite
+
 
 
 // --- Default Examples ---
@@ -141,25 +146,52 @@ async function render() {
     initialData = els.data.value ? JSON.parse(els.data.value) : undefined;
 
     // Try parsing config as JSON, fallback to JS eval
+
+    // Try parsing config as JSON, fallback to JS eval
     try {
       config = els.config.value ? JSON.parse(els.config.value) : {};
     } catch {
-
       let code = els.config.value;
       // Support for copy-pasting from JS modules (strip imports/exports)
-      code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '');
-      code = code.replace(/export\s+default\s+/g, 'return ');
-      code = code.replace(/export\s+/g, '');
-      
-      try {
-        // Try as expression (wrapped in parens to ensure it's an expression, not a block, and to fail on multiple statements)
-        const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', `return (${code});`);
-        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
-      } catch (e) {
-        // code += "\nif (typeof CUSTOM_RENDERERS !== 'undefined') { setCustomRenderers(CUSTOM_RENDERERS); }";
-        const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'mount', code);
-        config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers);
-      }
+      code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, "");
+      code = code.replace(/export\s+default\s+/g, "return ");
+      code = code.replace(/export\s+/g, "");
+
+      const fn = new Function(
+        "h",
+        "renderObject",
+        "renderProperties",
+        "renderNode",
+        "getName",
+        "resolvePath",
+        "generateDefaultData",
+        "domRenderer",
+        "setI18n",
+        "setConfig",
+        "setCustomRenderers",
+        "renderCompactFieldWrapper",
+        "createTypeSelectArrayRenderer",
+        "createAdvancedOptionsRenderer",
+        "createOptionalRenderer",
+        code,
+      );
+      config = fn(
+        h,
+        renderObject,
+        renderProperties,
+        renderNode,
+        getName,
+        resolvePath,
+        generateDefaultData,
+        domRenderer,
+        setI18n,
+        setConfig,
+        setCustomRenderers,
+        renderCompactFieldWrapper,
+        createTypeSelectArrayRenderer,
+        createAdvancedOptionsRenderer,
+        createOptionalRenderer,
+      );
     }
   } catch (e) {
     alert("Invalid JSON or JS in one of the editors: " + `${e}`,);

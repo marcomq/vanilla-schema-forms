@@ -3,6 +3,8 @@ import { RenderContext, CustomRenderer } from "./types";
 import { attachInteractivity } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
 import { CONFIG } from "./config";
+import { h } from "./hyperscript";
+import { generateDefaultData } from "./form-data-reader";
 
 export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
   "mode": {
@@ -334,3 +336,324 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   
   return newNode;
 }
+
+/**
+ * Reusable renderer factory for arrays with oneOf items.
+ * It renders a select dropdown to choose the item type when adding a new item.
+ */
+export const createTypeSelectArrayRenderer = ({
+  buttonLabel = "Add Item",
+  itemLabel = "Item",
+}: { buttonLabel?: string, itemLabel?: string } = {}): CustomRenderer<Node> => ({
+  render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+    const itemsContainerId = `${elementId}-items`;
+    const itemsContainer = h("div", {
+      className: rendererConfig.classes.arrayItems,
+      id: itemsContainerId,
+    });
+
+    // Helper to render a single item
+    const renderItem = (itemData: any, index: number) => {
+      let selectedOption = node.items!.oneOf ? node.items!.oneOf![0] : node.items!;
+
+      if (itemData && typeof itemData === "object" && node.items!.oneOf) {
+        const dataKeys = Object.keys(itemData);
+        node.items!.oneOf!.forEach((opt) => {
+          if (opt.properties) {
+            const propKeys = Object.keys(opt.properties);
+            if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) {
+              selectedOption = opt;
+            }
+          }
+        });
+      }
+
+      let itemNodeToRender = selectedOption;
+      let itemPath = `${path}.${index}`;
+      let itemDataPath = [...dataPath, index];
+
+      // Unwrap single-property objects to reduce nesting
+      if (
+        selectedOption.properties &&
+        Object.keys(selectedOption.properties).length === 1
+      ) {
+        const propName = Object.keys(selectedOption.properties)[0];
+        itemNodeToRender = selectedOption.properties[propName];
+        itemPath = `${itemPath}.${propName}`;
+        itemDataPath = [...itemDataPath, propName];
+
+        if (!itemNodeToRender.title) {
+          itemNodeToRender = {
+            ...itemNodeToRender,
+            title:
+              selectedOption.title ||
+              propName.charAt(0).toUpperCase() + propName.slice(1),
+          };
+        }
+      } else {
+        itemNodeToRender = {
+          ...selectedOption,
+          title: selectedOption.title || `${itemLabel} ${index + 1}`,
+        };
+      }
+
+      const itemEl = renderNode(
+        context,
+        itemNodeToRender,
+        itemPath,
+        false,
+        itemDataPath,
+      );
+      return domRenderer.renderArrayItem(itemEl);
+    };
+
+    // Render existing items
+    if (Array.isArray(node.defaultValue)) {
+      node.defaultValue.forEach((itemData: any, index: number) => {
+        itemsContainer.appendChild(renderItem(itemData, index));
+      });
+    }
+
+    const addBtn = h(
+      "button",
+      {
+        type: "button",
+        className: rendererConfig.classes.buttonPrimary,
+        onclick: (e: any) => {
+          e.currentTarget.style.display = "none";
+          const select = e.currentTarget.nextElementSibling;
+          select.style.display = "inline-block";
+          select.focus();
+          if (select.showPicker) select.showPicker();
+        },
+      },
+      buttonLabel,
+    );
+
+    if (!node.items!.oneOf) {
+      // Fall back to a consistent fieldset structure for non-oneOf arrays
+      return h(
+        "fieldset",
+        { className: rendererConfig.classes.fieldset, id: elementId },
+        h("legend", { className: rendererConfig.classes.legend }, node.title),
+        node.description
+          ? h("div", { className: rendererConfig.classes.description }, node.description)
+          : "",
+        itemsContainer,
+      );
+    }
+
+    const options = node.items!.oneOf!
+      .map((option, index) => {
+        if (
+          option.type === "null" ||
+          (option.title && option.title.toLowerCase() === "null")
+        )
+          return null;
+        return h(
+          "option",
+          { value: index },
+          option.title || `Option ${index + 1}`,
+        );
+      })
+      .filter((o) => o !== null);
+    options.unshift(
+      h(
+        "option",
+        { value: "", selected: true, disabled: true },
+        "Select type...",
+      ),
+    );
+
+    const select = h(
+      "select",
+      {
+        className: rendererConfig.classes.select,
+        style: "display: none; width: auto; margin-top: 0.5rem;",
+        onchange: (e: any) => {
+          const selectedIndex = parseInt(e.target.value, 10);
+          if (isNaN(selectedIndex)) return;
+          e.target.value = "";
+          e.target.style.display = "none";
+          addBtn.style.display = "inline-block";
+
+          const currentPath = context.elementIdToDataPath.get(elementId);
+          if (!currentPath) return;
+
+          const storePath = [...currentPath];
+          const currentData = context.store.getPath(storePath) || [];
+          const newItemIndex = currentData.length;
+          const selectedOption = node.items!.oneOf![selectedIndex];
+          const newData = generateDefaultData(selectedOption);
+          context.store.setPath([...storePath, newItemIndex], newData);
+
+          const wrapper = renderItem(newData, newItemIndex);
+          itemsContainer.appendChild(wrapper);
+        },
+        onblur: (e: any) => {
+          e.target.value = "";
+          e.target.style.display = "none";
+          addBtn.style.display = "inline-block";
+        },
+      },
+      ...options,
+    );
+
+    return h(
+      "fieldset",
+      { className: rendererConfig.classes.fieldset, id: elementId },
+      h("legend", { className: rendererConfig.classes.legend }, node.title),
+      node.description
+        ? h("div", { className: rendererConfig.classes.description }, node.description)
+        : "",
+      itemsContainer,
+      addBtn,
+      select,
+    );
+  },
+});
+
+/**
+ * Reusable renderer factory for objects with advanced/collapsible options.
+ * Properties not in 'alwaysVisible' or 'required' are hidden behind a "Show more" toggle.
+ */
+export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []): CustomRenderer<Node> => ({
+  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+    // Fallback for primitives (e.g. "static" endpoint which is a string, not an object)
+    if (node.type !== "object") {
+      const name = getName(dataPath);
+      if (node.type === "string")
+        return domRenderer.renderString(node, elementId, name);
+      if (node.type === "boolean")
+        return domRenderer.renderBoolean(node, elementId, name);
+      if (node.type === "number" || node.type === "integer") {
+        const safeNode =
+          node.defaultValue === null ? { ...node, defaultValue: "" } : node;
+        return domRenderer.renderNumber(safeNode, elementId, name);
+      }
+      return domRenderer.renderUnsupported(node);
+    }
+
+    const visibleProps: Record<string, FormNode> = {};
+    const advancedProps: Record<string, FormNode> = {};
+    const alwaysVisible = new Set(alwaysVisibleKeys);
+
+    if (node.properties) {
+      Object.keys(node.properties).forEach((key) => {
+        const prop = node.properties![key];
+        if (prop.required || alwaysVisible.has(key)) {
+          visibleProps[key] = prop;
+        } else {
+          advancedProps[key] = prop;
+        }
+      });
+    }
+
+    const visibleContent = renderProperties(
+      context,
+      visibleProps,
+      elementId,
+      dataPath,
+    );
+
+    let advancedContent: Node | null = null;
+    let toggleBtn: Node | null = null;
+
+    if (Object.keys(advancedProps).length > 0) {
+      const optionsId = `${elementId}-options`;
+      advancedContent = h(
+        "div",
+        {
+          id: optionsId,
+          style: "display: none;",
+          className: "",
+        },
+        renderProperties(context, advancedProps, elementId, dataPath),
+      );
+
+      toggleBtn = h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-sm btn-link p-0 text-decoration-none mt-2",
+          onclick: (e: any) => {
+            const el = e.currentTarget;
+            const elOptions = document.getElementById(optionsId);
+            if (elOptions) {
+              const isHidden = elOptions.style.display === "none";
+              elOptions.style.display = isHidden ? "block" : "none";
+              el.textContent = isHidden ? "Hide" : "Show more...";
+            }
+          },
+        },
+        "Show more...",
+      );
+    }
+
+    return h(
+      "fieldset",
+      { className: `${rendererConfig.classes.fieldset} ${rendererConfig.classes.objectWrapper}`, id: elementId },
+      h("legend", { className: rendererConfig.classes.legend }, node.title),
+      node.description
+        ? h("div", { className: `${rendererConfig.classes.description}` }, node.description)
+        : "",
+      visibleContent,
+      toggleBtn || "",
+      advancedContent || "",
+    );
+  },
+});
+
+/**
+ * Reusable renderer factory for objects where a boolean property toggles the visibility of other properties.
+ * @param toggleKey - The key of the boolean property that controls visibility (default: "required").
+ */
+export const createOptionalRenderer = (toggleKey: string = "required"): CustomRenderer<Node> => ({
+  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+    const toggleProp = node.properties?.[toggleKey];
+
+    // Fallback to standard object rendering if toggle property is missing
+    if (!toggleProp) {
+      return renderObject(context, node, elementId, false, dataPath);
+    }
+
+    const otherProps = { ...node.properties };
+    delete otherProps[toggleKey];
+    
+    const togglePath = [...dataPath, toggleKey];
+    const name = getName(togglePath);
+
+    const toggleId = `${elementId}.${toggleKey}`;
+    const optionsId = `${elementId}-options`;
+    
+    const checkbox = domRenderer.renderBoolean(
+      toggleProp,
+      toggleId,
+      name,
+      `data-toggle-target="${optionsId}"`
+    );
+    
+    const optionsContent = renderProperties(
+      context,
+      otherProps,
+      elementId,
+      dataPath,
+    );
+
+    return h(
+      "fieldset",
+      { className: `${rendererConfig.classes.fieldset} ${rendererConfig.classes.objectWrapper}`, id: elementId },
+      h("legend", { className: rendererConfig.classes.legend }, node.title),
+      checkbox,
+      h(
+        "div",
+        {
+          id: optionsId,
+          style: "display: none;",
+          className: "mt-3",
+        },
+        optionsContent,
+      ),
+    );
+  },
+});

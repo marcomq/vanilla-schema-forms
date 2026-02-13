@@ -59,7 +59,6 @@ describe('Templates', () => {
       enum: ['red', 'blue', 'green']
     };
     const element = domRenderer.renderSelect(node, 'select_id', node.enum as string[], "select_id");
-    const html = (element as HTMLElement).outerHTML;
     
     const select = (element as HTMLElement).querySelector('select');
     expect(select).not.toBeNull();

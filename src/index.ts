@@ -4,17 +4,25 @@ import { type CustomRenderer, RenderContext } from "./types";
 import { generateDefaultData } from "./form-data-reader";
 import { Store } from "./state";
 import { CONFIG } from "./config";
-import { domRenderer, rendererConfig } from "./dom-renderer";
+import { domRenderer, rendererConfig, renderCompactFieldWrapper } from "./dom-renderer";
 import { validateAndShowErrors, resolvePath } from "./events";
 
 export { setConfig, resetConfig } from "./config";
 export { setI18n, resetI18n } from "./i18n";
-export { renderNode, renderObject, renderProperties, getName } from "./renderer";
+export { 
+  renderNode, 
+  renderObject, 
+  renderProperties, 
+  getName,
+  createTypeSelectArrayRenderer,
+  createAdvancedOptionsRenderer,
+  createOptionalRenderer
+} from "./renderer";
 export type { RenderContext, CustomRenderer } from "./types";
 export { generateDefaultData } from "./form-data-reader";
 export { adaptUiSchema } from "./ui-schema-adapter";
 export { h } from "./hyperscript";
-export { domRenderer, rendererConfig };
+export { domRenderer, rendererConfig, renderCompactFieldWrapper };
 export { validateAndShowErrors, resolvePath };
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
