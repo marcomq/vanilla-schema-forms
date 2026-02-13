@@ -4,7 +4,7 @@ test('TLS toggle should show/hide options', async ({ page }) => {
   await page.goto('/');
 
   // Add a route
-  // await page.locator('.js_btn-add-ap').click();
+  // await page.locator('.js-btn-add-ap').click();
 
   // Select 'mqtt' to make TLS section visible
   const inputSelector = page.locator('select[id$=".input__selector"]');

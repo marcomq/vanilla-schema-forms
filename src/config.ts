@@ -5,6 +5,7 @@ export const DEFAULT_CONFIG = {
       'username', 'password', 'topic', 'group', 'key', 'value', 'required'
     ],
     perObjectPriority: {} as Record<string, string[]>,
+    defaultRenderLast: [] as string[],
   },
   visibility: {
     hiddenPaths: [] as string[],

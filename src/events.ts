@@ -375,11 +375,6 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
 
 function handleApRemoveItem(context: RenderContext, target: HTMLElement, container: HTMLElement) {
   const row = target.closest(`.${rendererConfig.triggers.additionalPropertyRow}`);
-  // Note: Removing APs from store is tricky because we need the Key.
-  // The readFormData logic handles this by rescraping, but for pure reactivity we'd need to know the key.
-  // For now, we rely on the fact that the DOM removal stops it from being read, 
-  // BUT since we are decoupling, we should ideally remove it from store.
-  // Implementation: Find the key input in the row.
   const keyInput = row?.querySelector(`.${rendererConfig.triggers.additionalPropertyKey}`) as HTMLInputElement;
   const apElement = target.closest(`.${rendererConfig.triggers.additionalPropertiesWrapper}`);
   const elementId = apElement?.getAttribute('data-element-id');
@@ -404,55 +399,12 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
   container.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-export function resolvePath(contextOrId: RenderContext | string, elementId?: string): (string | number)[] | null {
-  if (typeof contextOrId === 'string') {
-    return resolvePathLegacy(contextOrId);
-  }
-
-  const context = contextOrId as RenderContext;
-  const id = elementId;
-
-  if (!id) return null;
-
-  const path = context.elementIdToDataPath.get(id);
+export function resolvePath(context: RenderContext, elementId: string): (string | number)[] | null {
+  const path = context.elementIdToDataPath.get(elementId);
   if (!path) return null;
   // Skip root segment for store path
   if (path.length <= 1) return [];
   return path.slice(1);
-}
-
-function resolvePathLegacy(elementId: string): (string | number)[] | null {
-  const fullParts = elementId.split('.');
-  if (fullParts.length === 0) return [];
-  
-  // The first part is the Root title, which we don't include in the data path.
-  const path: (string | number)[] = [];
-  let currentIdParts = [fullParts[0]]; // Start with Root
-  
-  for (let i = 1; i < fullParts.length; i++) {
-    const part = fullParts[i];
-    currentIdParts.push(part);
-
-    // Skip variant segments (oneOf options) to flatten the data structure
-    if (part.startsWith('__var_')) continue;
-    
-    if (part.startsWith('__ap_')) {
-      const keyInputId = `${currentIdParts.join('.')}_key`;
-      const keyInput = document.getElementById(keyInputId) as HTMLInputElement;
-      
-      if (keyInput) {
-        const key = keyInput.value;
-        if (!key) return null; // Cannot store value without a key
-        path.push(key);
-      } else {
-        return null;
-      }
-    } else {
-      const num = parseInt(part, 10);
-      path.push(isNaN(num) ? part : num);
-    }
-  }
-  return path;
 }
 
 function updateArrayIndices(context: RenderContext, container: HTMLElement, startIndex: number, baseId: string) {

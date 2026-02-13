@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Build Website
-        run: npm run build:playground
+        run: npm run build:playground -- --base=/vanilla-schema-forms/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Adjust 'dist' to match your build script's output folder
-          path: './docs'
+          path: './dist'
 
       - name: Deploy to GitHub Pages
         id: deployment

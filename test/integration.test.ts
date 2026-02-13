@@ -182,7 +182,7 @@ describe('Integration Tests', () => {
     expect(store.get()).toEqual({ users: [] });
 
     // Add item
-    const addButton = container.querySelector('.js_btn-add-array-item') as HTMLButtonElement;
+    const addButton = container.querySelector('.js-btn-add-array-item') as HTMLButtonElement;
     expect(addButton).not.toBeNull();
     addButton.click();
 

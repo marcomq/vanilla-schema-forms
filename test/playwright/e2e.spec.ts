@@ -7,12 +7,12 @@ test.describe('Schema Form Mechanics', () => {
 
   test('Map (Additional Properties): Can add, rename, and remove routes', async ({ page }) => {
     // 1. Add a new Route
-    const addBtn = page.locator('.js_btn-add-ap');
+    const addBtn = page.locator('.js-btn-add-ap');
     await expect(addBtn).toBeVisible();
     await addBtn.click();
 
     // 2. Verify row appears
-    const keyInput = page.locator('.js_ap-key').first();
+    const keyInput = page.locator('.js-ap-key').first();
     await expect(keyInput).toBeVisible();
     
     // 3. Rename the key
@@ -25,7 +25,7 @@ test.describe('Schema Form Mechanics', () => {
     await expect(jsonOutput).toContainText(/"my-custom-route":/);
 
     // 5. Remove the route
-    await page.locator('.js_btn-remove-ap').first().click();
+    await page.locator('.js-btn-remove-ap').first().click();
 
     // The JSON output should now be an empty object "{}" or empty string
     await expect(jsonOutput).not.toContainText(/"my-custom-route":/);
@@ -33,7 +33,7 @@ test.describe('Schema Form Mechanics', () => {
 
   test('OneOf (Polymorphism): Can switch endpoint types and render specific fields', async ({ page }) => {
     // Setup: Add a route
-    // await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js-btn-add-ap').click();
 
     // 1. Find the "Input" selector. 
     // Based on your HTML, the input selector is inside the route.
@@ -59,7 +59,7 @@ test.describe('Schema Form Mechanics', () => {
 
   test('Arrays: Can add and remove middleware items', async ({ page }) => {
     // Setup: Add route
-    // await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js-btn-add-ap').click();
 
     // 1. Find the "Add Item" button for middlewares
     // We target the specific button for the input middlewares array
@@ -71,7 +71,7 @@ test.describe('Schema Form Mechanics', () => {
     await typeSelect.selectOption({ index: 1 });
 
     // 2. Verify an item row appears
-    const itemRow = middlewaresGroup.locator('.js_array-item-row');
+    const itemRow = middlewaresGroup.locator('.js-array-item-row');
     await expect(itemRow).toHaveCount(1);
 
     // 4. Add a second item
@@ -80,20 +80,20 @@ test.describe('Schema Form Mechanics', () => {
     await expect(itemRow).toHaveCount(2);
 
     // 5. Remove the first item
-    await itemRow.first().locator('.js_btn-remove-item').click();
+    await itemRow.first().locator('.js-btn-remove-item').click();
     await expect(itemRow).toHaveCount(1);
   });
 
   test('Data Binding: Deeply nested changes update JSON output', async ({ page }) => {
-    // await page.locator('.js_btn-add-ap').click();
+    // await page.locator('.js-btn-add-ap').click();
     
     // 1. Set Route Key
-    const keyInput = page.locator('.js_ap-key').first();
+    const keyInput = page.locator('.js-ap-key').first();
     await keyInput.fill('deep-test');
     await keyInput.blur();
 
     // 2. Configure Input -> Memory
-    const routeRow = page.locator('.js_ap-row').filter({ has: page.locator('input[data-original-key="deep-test"]') });
+    const routeRow = page.locator('.js-ap-row').filter({ has: page.locator('input[data-original-key="deep-test"]') });
     const inputSelector = routeRow.locator('select[id$=".input__selector"]');
     await inputSelector.selectOption({ label: 'Memory' });
 

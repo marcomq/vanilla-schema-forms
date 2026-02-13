@@ -18,21 +18,21 @@ export const rendererConfig = {
     additionalPropertyItem: 'div'
   },
   triggers: {
-    oneOfSelector: 'js_oneof-selector',
-    addArrayItem: 'js_btn-add-array-item',
-    removeArrayItem: 'js_btn-remove-item',
-    addAdditionalProperty: 'js_btn-add-ap',
-    removeAdditionalProperty: 'js_btn-remove-ap',
-    additionalPropertyKey: 'js_ap-key',
-    additionalPropertyItems: 'js_ap-items',
-    additionalPropertyRow: 'js_ap-row',
-    additionalPropertiesWrapper: 'js_additional-properties',
-    arrayItems: 'js_array-items',
-    arrayItemRow: 'js_array-item-row',
-    arrayItemContent: 'js_array-item-content',
-    apKeyContainer: 'js_ap-key-container',
-    apValueWrapper: 'js_ap-value-wrapper',
-    validationError: 'js_validation-error'
+    oneOfSelector: 'js-oneof-selector',
+    addArrayItem: 'js-btn-add-array-item',
+    removeArrayItem: 'js-btn-remove-item',
+    addAdditionalProperty: 'js-btn-add-ap',
+    removeAdditionalProperty: 'js-btn-remove-ap',
+    additionalPropertyKey: 'js-ap-key',
+    additionalPropertyItems: 'js-ap-items',
+    additionalPropertyRow: 'js-ap-row',
+    additionalPropertiesWrapper: 'js-additional-properties',
+    arrayItems: 'js-array-items',
+    arrayItemRow: 'js-array-item-row',
+    arrayItemContent: 'js-array-item-content',
+    apKeyContainer: 'js-ap-key-container',
+    apValueWrapper: 'js-ap-value-wrapper',
+    validationError: 'js-validation-error'
   },
   classes: {
     input: 'form-control',
@@ -130,8 +130,6 @@ export const domRenderer: TemplateRenderer<Node> = {
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
 
-  // The rest of the functions will be implemented later.
-  // For now, they will throw an error.
   renderFieldsetWrapper: (node: FormNode, elementId: string, content: Node, className: string = ""): Node => {
     const children: Node[] = [
       h(rendererConfig.elements.legend, { className: rendererConfig.classes.legend }, node.title)
@@ -167,21 +165,11 @@ export const domRenderer: TemplateRenderer<Node> = {
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
   renderBoolean: (node: FormNode, elementId: string, name: string, _attributes: string = ""): Node => {
-    let attrsString = _attributes;
-    let finalName = name;
-
-    // Compatibility fix for custom renderers that may be calling with an outdated signature
-    // where the attribute string was the 3rd argument instead of the 4th.
-    if (name && name.includes('data-toggle-target') && !_attributes) {
-      attrsString = name;
-      finalName = ''; // The correct name is unknown here, but this is better than a broken attribute.
-    }
-
     const attrs: { [key: string]: any } = {
       type: 'checkbox',
       className: rendererConfig.classes.checkboxInput,
       id: elementId,
-      name: finalName,
+      name: name,
     };
 
     if (node.defaultValue) attrs.checked = true;
@@ -189,8 +177,8 @@ export const domRenderer: TemplateRenderer<Node> = {
     if (node.readOnly) attrs.disabled = true;
 
     // The `_attributes` string is a legacy way to pass `data-toggle-target` for custom renderers.
-    if (attrsString) {
-      const match = attrsString.match(/data-toggle-target="([^"]+)"/);
+    if (_attributes) {
+      const match = _attributes.match(/data-toggle-target="([^"]+)"/);
       if (match) {
         attrs['data-toggle-target'] = match[1];
       }

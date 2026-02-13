@@ -232,7 +232,6 @@ async function render() {
     // Try parsing config as JSON, fallback to JS eval
     try {
       config = els.config.value ? JSON.parse(els.config.value) : {};
-      // console.log("json found");
     } catch {
 
       let code = els.config.value;
@@ -243,7 +242,6 @@ async function render() {
       
       const fn = new Function('h', 'renderObject', 'renderProperties', 'renderNode', 'getName', 'resolvePath', 'generateDefaultData', 'domRenderer', 'setI18n', 'setConfig', 'setCustomRenderers', 'RangeWidget', 'InputWidget', 'mount', 'createSvelteRenderer', code);
       config = fn(h, renderObject, renderProperties, renderNode, getName, resolvePath, generateDefaultData, domRenderer, setI18n, setConfig, setCustomRenderers, RangeWidget, InputWidget, mount, createSvelteRenderer);
-      // console.log("js 2 found");
     }
   } catch (e) {
     alert("Invalid JSON or JS in one of the editors: " + `${e}`,);

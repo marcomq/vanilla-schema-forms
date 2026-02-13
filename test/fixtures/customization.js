@@ -179,7 +179,7 @@ export const routesRenderer = {
   renderAdditionalPropertyRow: (valueHtml, defaultKey, uniqueId) => {
     const keyInputAttrs = {
       type: "text",
-      className: "form-control form-control-sm fw-bold ap-key js_ap-key",
+      className: "form-control form-control-sm fw-bold ap-key js-ap-key",
       placeholder: "Route name",
       value: defaultKey,
     };
@@ -190,7 +190,7 @@ export const routesRenderer = {
 
     return h(
       "div",
-      { className: "mb-4 border rounded shadow-sm ap-row js_ap-row" },
+      { className: "mb-4 border rounded shadow-sm ap-row js-ap-row" },
       h(
         "div",
         {
@@ -211,7 +211,7 @@ export const routesRenderer = {
           {
             type: "button",
             className:
-              "btn btn-sm btn-outline-danger btn-remove-ap js_btn-remove-ap",
+              "btn btn-sm btn-outline-danger btn-remove-ap js-btn-remove-ap",
           },
           "Remove Route",
         ),
