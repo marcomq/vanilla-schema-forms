@@ -1,0 +1,15 @@
+- id: TASK-007
+  title: Optimize Customization for mq-bridge schema
+  description: >-
+    Optimize schema to improve UX: 
+    1. Endpoint should be the first parameter in the form. First input, then output.
+    2. Split input and output into visibly separate sections. 
+    3. Compact input format. Don't show label above input. Render with label on left, input next and description on right in one line.
+    4. Instead of being able to add middlewares, try to have checkboxes for middlewares, as multiple middleware with same type don't make sense. Just one middleware of each type is possible.
+    5. Options are usually irrelevant. Hide options and make them configurable via additional button or extra tab.
+  impact: Unknown
+  status: In Queue
+  affectedFiles:
+    - "@example/customization.js"
+    - "@src/index.ts"
+    - "@example/index.html"

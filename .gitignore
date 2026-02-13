@@ -91,6 +91,10 @@ dist
 # vuepress build output
 .vuepress/dist
 
+playwright-report
+test-results
+playground/vanilla-schema-forms.umd.js*
+
 # vuepress v2.x temp and cache directory
 .temp
 .cache
@@ -125,6 +129,9 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+.DS_Store
+dist-pages/playground
+
 # yarn v3
 .pnp.*
 .yarn/*
@@ -137,3 +144,5 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+example/index.dist.html
+example/customization.dist.js
