@@ -284,14 +284,45 @@ export const domRenderer: TemplateRenderer<Node> = {
   renderOneOf: (node: FormNode, elementId: string, name: string): Node => {
     if (!node.oneOf || node.oneOf.length === 0) return document.createTextNode('');
 
-    let selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
-    if (selectedIndex === -1) {
+    let selectedIndex = -1;
+
+    // Attempt to match data to an option
+    if (node.defaultValue !== undefined) {
       selectedIndex = node.oneOf.findIndex(opt => {
-        const title = opt.title.toLowerCase();
-        return title === 'null' || title === 'none';
+        if (node.defaultValue === null) {
+           return opt.type === 'null' || (opt.title && opt.title.toLowerCase() === 'null');
+        }
+        if (Array.isArray(node.defaultValue)) {
+            return opt.type === 'array';
+        }
+        if (typeof node.defaultValue === 'object') {
+           if (opt.properties) {
+             const dataKeys = Object.keys(node.defaultValue);
+             const propKeys = Object.keys(opt.properties);
+             // Check for unique property match (common in this schema pattern)
+             if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) return true;
+             // Check if all required properties are present (required can be boolean or string[])
+             if (Array.isArray(opt.required) && opt.required.length > 0 && opt.required.every((req: string) => dataKeys.includes(req))) return true;
+           }
+           return false;
+        }
+        // Primitives
+        if (opt.type === typeof node.defaultValue) return true;
+        if (opt.type === 'integer' && typeof node.defaultValue === 'number') return true;
+        return false;
       });
     }
-    if (selectedIndex === -1) selectedIndex = 0;
+
+    if (selectedIndex === -1) {
+      selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
+      if (selectedIndex === -1) {
+        selectedIndex = node.oneOf.findIndex(opt => {
+          const title = (opt.title || '').toLowerCase();
+          return title === 'null' || title === 'none';
+        });
+      }
+      if (selectedIndex === -1) selectedIndex = 0;
+    }
 
     const optionElements = node.oneOf.map((opt, idx) => {
       const attrs: { [key: string]: any } = { value: idx };

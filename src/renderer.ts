@@ -212,17 +212,15 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
 
         const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: '' } as FormNode;
         const valueNode = hydrateNodeWithData(valueSchema, node.defaultValue[key]);
-        valueNode.title = key;
-        valueNode.key = undefined;
+        valueNode.title = key; // Use key as title for display
+        valueNode.key = key;   // Use key for segment generation
 
-        const apId = `${elementId}.__ap_${apIndex}`;
         const apDataPath = [...dataPath, key];
 
+        const apId = `${elementId}.__ap_${apIndex}`; // This is the unique internal ID for the row
         // Render headless to avoid double borders (AP row already has border/container)
+        // Pass apId as the path prefix for all children of this AP value.
         const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
-        context.dataPathRegistry.set(toRegistryKey(apDataPath), apId);
-        context.elementIdToDataPath.set(apId, apDataPath);
-        
         const uniqueId = `${apId}_key`;
         const renderer = findCustomRenderer(context, elementId);
         
@@ -477,10 +475,12 @@ export const createTypeSelectArrayRenderer = ({
           e.target.style.display = "none";
           addBtn.style.display = "inline-block";
 
-          const currentPath = context.elementIdToDataPath.get(elementId);
-          if (!currentPath) return;
+          const fullPath = context.elementIdToDataPath.get(elementId);
+          if (!fullPath) return;
 
-          const storePath = [...currentPath];
+          // The store path should not include the root segment.
+          const storePath = fullPath.length > 1 ? fullPath.slice(1) : [];
+
           const currentData = context.store.getPath(storePath) || [];
           const newItemIndex = currentData.length;
           const selectedOption = node.items!.oneOf![selectedIndex];

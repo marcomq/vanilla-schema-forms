@@ -129,11 +129,11 @@ export async function init(
       customRenderers: { ...DEFAULT_CUSTOM_RENDERERS, ...globalCustomRenderers },
     };
 
+    // Initialize store before rendering so that event handlers have access to initial data
+    store.reset(finalData);
+
     // Render the form
     renderForm(formContainer, context);
-
-    // Initialize store
-    store.reset(finalData);
 
     // Subscribe to store changes
     store.subscribe((data) => {

@@ -96,19 +96,28 @@ export const tlsRenderer = {
  * Custom renderer for Routes (Map/Dictionary).
  * It handles dynamic keys for additional properties and provides a custom UI for adding/removing routes.
  */
+let routesCurrentDataPath = null;
 export const routesRenderer = {
   render: (node, path, elementId, dataPath, context) => {
-    return renderObject(context, node, elementId, false, dataPath, {
+    routesCurrentDataPath = dataPath;
+    const result = renderObject(context, node, elementId, false, dataPath, {
       additionalProperties: { title: null },
     });
+    routesCurrentDataPath = null;
+    return result;
   },
   getDefaultKey: (index) => `Route ${index + 1}`,
   renderAdditionalPropertyRow: (valueHtml, defaultKey, uniqueId) => {
+    // Construct a name based on the path to the property this key represents.
+    const effectivePath = routesCurrentDataPath;
+    const keyInputName = effectivePath ? getName(effectivePath.concat(defaultKey)) : (uniqueId || "");
+
     const keyInputAttrs = {
       type: "text",
       className: "form-control form-control-sm fw-bold ap-key js-ap-key",
       placeholder: "Route name",
       value: defaultKey,
+      name: keyInputName,
     };
     if (uniqueId) keyInputAttrs.id = uniqueId;
 

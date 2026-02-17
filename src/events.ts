@@ -103,11 +103,15 @@ function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
 
           // Update Data Paths and Names for children
           const apId = `${parentId}.__ap_${index}`;
-          const oldPath = context.elementIdToDataPath.get(apId);
+          const parentDataPath = context.elementIdToDataPath.get(parentId);
+          if (!parentDataPath) {
+            console.warn(`[handleApKeyRename] Could not find parent data path for ID: ${parentId}`);
+            return;
+          }
+          const oldPath = [...parentDataPath, oldKey!];
+          const newPath = [...parentDataPath, newKey];
+
           if (oldPath) {
-             const basePath = oldPath.slice(0, -1);
-             const newPath = [...basePath, newKey];
-             
              updateDataPaths(context, apId, oldPath, newPath);
              
              const row = target.closest(`.${rendererConfig.triggers.additionalPropertyRow}`);
@@ -153,15 +157,25 @@ function setupOneOfHandlers(context: RenderContext, container: HTMLElement) {
   container.addEventListener('change', (e) => {
     const target = e.target as HTMLSelectElement;
     if (target.classList.contains(rendererConfig.triggers.oneOfSelector)) {
-      handleOneOfChange(context, target);
+      handleOneOfChange(context, target, e);
     }
   });
   
   // Initialize OneOfs
-  container.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
+  const initEvent = new Event('change', { bubbles: true });
+  (initEvent as any).__isInit = true;
+  container.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
+    // Sync value with selected option for consistent initialization
+    const select = el as HTMLSelectElement;
+    const selectedOption = select.querySelector('option[selected]');
+    if (selectedOption) {
+      select.value = (selectedOption as HTMLOptionElement).value;
+    }
+    el.dispatchEvent(initEvent);
+  });
 }
 
-function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
+function handleOneOfChange(context: RenderContext, target: HTMLSelectElement, event: Event) {
   const elementId = target.getAttribute('data-id');
   const node = context.nodeRegistry.get(elementId!);
   const contentContainer = document.getElementById(`${elementId}__oneof_content`);
@@ -169,6 +183,7 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
   if (node && node.oneOf && contentContainer) {
     const selectedIdx = parseInt(target.value, 10);
     let selectedNode = node.oneOf[selectedIdx];
+    const rawNode = selectedNode;
 
     // Use the current elementId as the base path for the child option to ensure correct nesting
     const path = elementId!;
@@ -177,33 +192,47 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
       console.warn(`[events] No data path found for element: ${elementId}`);
       return;
     }
+
+    // Hydrate selectedNode with current data from store to ensure UI reflects data
+    const storePath = resolvePath(context, elementId!);
+    let currentData: any = {};
+    if (storePath) {
+      currentData = context.store.getPath(storePath) || {};
+      selectedNode = hydrateNodeWithData(selectedNode, currentData);
+    }
+
     contentContainer.innerHTML = '';
     contentContainer.appendChild(renderNode(context, selectedNode, path, true, parentDataPath));
 
     // Update Store: Replace the data for this object with the new oneOf selection's defaults.
     // This approach does not preserve values between oneOf selections, which is the safest default
     // and matches the integration test expectations.
-    const storePath = resolvePath(context, elementId!);
     if (storePath) {
-      const currentData = context.store.getPath(storePath) || {};
-      const newData: any = {};
+      let newData: any = {};
+      const isInit = (event as any).__isInit;
       
-      // 1. Preserve Common Properties (i.e., properties that are siblings of the oneOf)
-      if (node.properties) {
-        for (const key in node.properties) {
-          if (currentData[key] !== undefined) {
-            newData[key] = currentData[key];
+      if (isInit) {
+        // Initialization: Preserve existing data, merge in defaults for missing fields
+        const optionData = generateDefaultData(rawNode);
+        if (typeof optionData === 'object' && optionData !== null) {
+           newData = { ...optionData, ...currentData };
+        } else {
+           newData = currentData;
+        }
+      } else {
+        // User Switch: Reset to defaults, preserving only common properties from parent
+        if (node.properties) {
+          for (const key in node.properties) {
+            if (currentData[key] !== undefined) {
+              newData[key] = currentData[key];
+            }
           }
         }
+        const optionData = generateDefaultData(rawNode);
+        if (typeof optionData === 'object' && optionData !== null) {
+           Object.assign(newData, optionData);
+        }
       }
-      
-      // 2. Generate and merge the default data for the newly selected option.
-      const optionData = generateDefaultData(selectedNode);
-      
-      if (typeof optionData === 'object' && optionData !== null) {
-         Object.assign(newData, optionData);
-      }
-      
       context.store.setPath(storePath, newData);
     }
     validateAndShowErrors(context);
