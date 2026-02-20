@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CONFIG, DEFAULT_CONFIG, setConfig, resetConfig } from '../src/config';
+import { CONFIG, DEFAULT_CONFIG, setConfig, resetConfig } from '../src/core/config';
 
 describe('Config', () => {
   beforeEach(() => {

@@ -1,10 +1,10 @@
-import { FormNode } from "./parser";
+import { FormNode } from "../core/parser";
 import { RenderContext, CustomRenderer } from "./types";
 import { attachInteractivity } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
-import { CONFIG } from "./config";
+import { CONFIG } from "../core/config";
 import { h } from "./hyperscript";
-import { generateDefaultData } from "./form-data-reader";
+import { generateDefaultData } from "../core/form-data-reader";
 
 export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {};
 
@@ -334,6 +334,9 @@ export const createTypeSelectArrayRenderer = ({
   itemLabel = "Item",
 }: { buttonLabel?: string, itemLabel?: string } = {}): CustomRenderer<Node> => ({
   render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+    if (!node.items) {
+      return domRenderer.renderUnsupported(node);
+    }
     const itemsContainerId = `${elementId}-items`;
     const itemsContainer = h("div", {
       className: rendererConfig.classes.arrayItems,

@@ -1,8 +1,9 @@
-import { RenderContext, ErrorObject } from "./types";
-import { FormNode } from "./parser";
+import { RenderContext } from "./types";
+import { ErrorObject } from "../core/types";
+import { FormNode } from "../core/parser";
 import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey } from "./renderer";
-import { generateDefaultData } from "./form-data-reader";
-import { validateData } from "./validator";
+import { generateDefaultData } from "../core/form-data-reader";
+import { validateData } from "../core/validator";
 import { domRenderer } from "./dom-renderer";
 import { h } from "./hyperscript";
 import { rendererConfig } from "./dom-renderer";

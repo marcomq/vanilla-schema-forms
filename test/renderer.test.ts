@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { hydrateNodeWithData, getName } from '../src/renderer';
-import { FormNode } from '../src/parser';
-import { setConfig, resetConfig } from '../src/config';
+import { hydrateNodeWithData, getName } from '../src/vanilla-renderer/renderer';
+import { FormNode } from '../src/core/parser';
+import { setConfig, resetConfig } from '../src/core/config';
 
 describe('hydrateNodeWithData', () => {
   it('preserves primitive values', () => {
