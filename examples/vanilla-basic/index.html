@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanilla Schema Forms - Basic Example</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; }
+        #form-container { margin-bottom: 2rem; border: 1px solid #ccc; padding: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Vanilla Example</h1>
+    <div id="form-container"></div>
+    <pre id="output"></pre>
+
+    <!-- Import from the local dist folder for testing -->
+    <script type="module">
+        import { init } from '../../dist/vanilla-schema-forms.es.js';
+
+        const schema = {
+            type: "object",
+            title: "User",
+            properties: {
+                name: { type: "string", title: "Name" },
+                age: { type: "integer", title: "Age" }
+            }
+        };
+
+        init('form-container', schema, {}, (data) => {
+            document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>

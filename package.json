@@ -1,0 +1,72 @@
+{
+  "name": "vanilla-schema-forms",
+  "version": "0.1.1",
+  "description": "A JSON schema driven form generator for vanilla JS/TS applications.",
+  "type": "module",
+  "main": "./dist/vanilla-schema-forms.umd.js",
+  "module": "./dist/vanilla-schema-forms.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vanilla-schema-forms.es.js",
+      "require": "./dist/vanilla-schema-forms.umd.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite serve playground --config playground/vite.config.ts",
+    "dev:test": "vite serve test/fixtures --config test/fixtures/vite.config.ts",
+    "prebuild": "tsc --noEmit",
+    "build": "vite build --config vite.config.lib.ts",
+    "build:playground": "vite build --config playground/vite.config.ts",
+    "test": "vitest --config vitest.config.ts",
+    "test:run": "vitest run",
+    "test:e2e": "playwright test",
+    "test:watch": "concurrently \"npm:test -- --watch\" \"npx nodemon --watch src --watch playwright-tests -e ts,html,json --exec 'npm run test:e2e'\"",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.0"
+  },
+  "dependencies": {
+    "@apidevtools/json-schema-ref-parser": "^15.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marcomq/vanilla-schema-forms.git"
+  },
+  "keywords": [
+    "json-schema",
+    "form",
+    "generator",
+    "vanilla",
+    "typescript"
+  ],
+  "author": "Marco Mengelkoch",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/marcomq/vanilla-schema-forms/issues"
+  },
+  "homepage": "https://github.com/marcomq/vanilla-schema-forms#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@types/node": "^25.2.3",
+    "concurrently": "^9.2.1",
+    "happy-dom": "^20.6.1",
+    "json-schema-to-ts": "^3.1.1",
+    "nodemon": "^3.1.0",
+    "svelte": "^5.51.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-node-polyfills": "^0.25.0",
+    "vitest": "^4.0.18"
+  }
+}
