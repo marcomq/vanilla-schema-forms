@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { parseSchema } from '../src/parser';
-import { renderNode } from '../src/renderer';
-import { RenderContext } from '../src/types';
-import { Store } from '../src/state';
-import { CONFIG } from '../src/config';
+import { parseSchema } from '../src/core/parser';
+import { renderNode } from '../src/vanilla-renderer/renderer';
+import { RenderContext } from '../src/vanilla-renderer/types';
+import { Store } from '../src/core/state';
+import { CONFIG } from '../src/core/config';
 import { JSONSchema } from 'json-schema-to-ts';
 
 describe('Format Support', () => {

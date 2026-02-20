@@ -1,14 +1,14 @@
-import { parseSchema } from "./parser";
-import { renderForm, hydrateNodeWithData, DEFAULT_CUSTOM_RENDERERS } from "./renderer";
-import { type CustomRenderer, RenderContext } from "./types";
-import { generateDefaultData } from "./form-data-reader";
-import { Store } from "./state";
-import { CONFIG } from "./config";
-import { domRenderer, rendererConfig, renderCompactFieldWrapper } from "./dom-renderer";
-import { validateAndShowErrors, resolvePath } from "./events";
+import { parseSchema } from "./core/parser";
+import { renderForm, hydrateNodeWithData, DEFAULT_CUSTOM_RENDERERS } from "./vanilla-renderer/renderer";
+import { type CustomRenderer, RenderContext } from "./vanilla-renderer/types";
+import { generateDefaultData } from "./core/form-data-reader";
+import { Store } from "./core/state";
+import { CONFIG } from "./core/config";
+import { domRenderer, rendererConfig, renderCompactFieldWrapper } from "./vanilla-renderer/dom-renderer";
+import { validateAndShowErrors, resolvePath } from "./vanilla-renderer/events";
 
-export { setConfig, resetConfig } from "./config";
-export { setI18n, resetI18n } from "./i18n";
+export { setConfig, resetConfig } from "./core/config";
+export { setI18n, resetI18n } from "./core/i18n";
 export { 
   renderNode, 
   renderObject, 
@@ -18,13 +18,16 @@ export {
   createAdvancedOptionsRenderer,
   createOptionalRenderer,
   hydrateNodeWithData
-} from "./renderer";
-export type { RenderContext, CustomRenderer } from "./types";
-export { generateDefaultData } from "./form-data-reader";
-export { adaptUiSchema } from "./ui-schema-adapter";
-export { h } from "./hyperscript";
+} from "./vanilla-renderer/renderer";
+export type { RenderContext, CustomRenderer } from "./vanilla-renderer/types";
+export { generateDefaultData } from "./core/form-data-reader";
+export { adaptUiSchema } from "./core/ui-schema-adapter";
+export { h } from "./vanilla-renderer/hyperscript";
 export { domRenderer, rendererConfig, renderCompactFieldWrapper };
 export { validateAndShowErrors, resolvePath };
+export { parseSchema } from "./core/parser";
+export { Store } from "./core/state";
+export type { FormNode } from "./core/types";
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 
@@ -38,6 +41,67 @@ export function resetCustomRenderers() {
 
 export interface RenderOptions {
   subSchemaPath?: string;
+}
+
+/**
+ * Initializes the core form logic (parsing, data hydration, state) without rendering to the DOM.
+ * This is useful for creating custom renderers (e.g. React, Vue) that consume the core logic.
+ */
+export async function createForm(
+  schemaOrUrl: string | any, 
+  initialData?: any, 
+  renderOptions?: RenderOptions
+) {
+  let schema = schemaOrUrl;
+  let data = initialData;
+
+  if (renderOptions?.subSchemaPath) {
+    // Ensure schema is an object before traversing
+    let schemaObj = typeof schema === 'string' ? await (await fetch(schema)).json() : schema;
+    
+    const pathParts = renderOptions.subSchemaPath.split('.');
+    let subSchema: any = schemaObj;
+    let subData: any = data;
+
+    for (const part of pathParts) {
+      // This traversal logic is simplistic and assumes a path of properties.
+      if (subSchema && subSchema.properties && subSchema.properties[part]) {
+        subSchema = subSchema.properties[part];
+        if (subData && typeof subData === 'object' && subData !== null && subData[part] !== undefined) {
+          subData = subData[part];
+        } else {
+          subData = undefined;
+        }
+      } else {
+        subSchema = undefined;
+        break;
+      }
+    }
+
+    if (subSchema) {
+      schema = subSchema;
+      data = subData;
+    } else {
+      throw new Error(`Error: sub-schema path "${renderOptions.subSchemaPath}" not found.`);
+    }
+  }
+
+  let rootNode = await parseSchema(schema);
+
+  // Hydrate with initial data if provided, otherwise generate defaults
+  const finalData = data !== undefined ? data : generateDefaultData(rootNode);
+  
+  // Pre-hydrate the root node so the renderer knows about default values (important for arrays/oneOf)
+  if (finalData !== undefined) {
+    rootNode = hydrateNodeWithData(rootNode, finalData);
+  }
+
+  const store = new Store<Record<string, any>>({});
+  
+  // Initialize store
+  store.reset(finalData);
+
+  return { rootNode, store, finalData };
 }
 
 /**
@@ -74,55 +138,7 @@ export async function init(
   }
 
   try {
-    let schema = schemaOrUrl;
-    let data = initialData;
-
-    if (renderOptions?.subSchemaPath) {
-      // Ensure schema is an object before traversing
-      let schemaObj = typeof schema === 'string' ? await (await fetch(schema)).json() : schema;
-      
-      const pathParts = renderOptions.subSchemaPath.split('.');
-      let subSchema: any = schemaObj;
-      let subData: any = data;
-
-      for (const part of pathParts) {
-        // This traversal logic is simplistic and assumes a path of properties.
-        if (subSchema && subSchema.properties && subSchema.properties[part]) {
-          subSchema = subSchema.properties[part];
-          if (subData && typeof subData === 'object' && subData !== null && subData[part] !== undefined) {
-            subData = subData[part];
-          } else {
-            subData = undefined;
-          }
-        } else {
-          subSchema = undefined;
-          break;
-        }
-      }
-
-      if (subSchema) {
-        schema = subSchema;
-        data = subData;
-      } else {
-        const errorMsg = `Error: sub-schema path "${renderOptions.subSchemaPath}" not found.`;
-        console.error(errorMsg);
-        formContainer.innerHTML = '';
-        formContainer.appendChild(domRenderer.renderSchemaError(new Error(errorMsg)));
-        return;
-      }
-    }
-
-    let rootNode = await parseSchema(schema);
-
-    // Hydrate with initial data if provided, otherwise generate defaults
-    const finalData = data !== undefined ? data : generateDefaultData(rootNode);
-    
-    // Pre-hydrate the root node so the renderer knows about default values (important for arrays/oneOf)
-    if (finalData !== undefined) {
-      rootNode = hydrateNodeWithData(rootNode, finalData);
-    }
-
-    const store = new Store<Record<string, any>>({});
+    const { rootNode, store, finalData } = await createForm(schemaOrUrl, initialData, renderOptions);
     
     const context: RenderContext = {
       store,
@@ -133,9 +149,6 @@ export async function init(
       elementIdToDataPath: new Map(),
       customRenderers: { ...DEFAULT_CUSTOM_RENDERERS, ...globalCustomRenderers },
     };
-
-    // Initialize store before rendering so that event handlers have access to initial data
-    store.reset(finalData);
 
     // Render the form
     renderForm(formContainer, context);
@@ -173,7 +186,6 @@ export async function init(
     formContainer.innerHTML = '';
     formContainer.appendChild(domRenderer.renderSchemaError(error));
     console.error(error);
-    throw error;
   }
 }
 

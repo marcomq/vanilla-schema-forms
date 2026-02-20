@@ -1,5 +1,5 @@
-import { FormNode } from "./parser";
-import { getUiText } from "./i18n";
+import { FormNode } from "../core/parser";
+import { getUiText } from "../core/i18n";
 import { h } from "./hyperscript";
 import { TemplateRenderer } from "./types";
 
