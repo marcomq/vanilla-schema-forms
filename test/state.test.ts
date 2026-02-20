@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Store } from '../src/state';
+import { Store } from '../src/core/state';
 
 describe('Store', () => {
   it('should initialize with default state', () => {

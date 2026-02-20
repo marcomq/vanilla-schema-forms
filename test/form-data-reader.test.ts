@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateDefaultData } from '../src/form-data-reader';
-import { FormNode } from '../src/parser';
+import { generateDefaultData } from '../src/core/form-data-reader';
+import { FormNode } from '../src/core/parser';
 
 describe('generateDefaultData', () => {
   it('returns explicit default value if present', () => {

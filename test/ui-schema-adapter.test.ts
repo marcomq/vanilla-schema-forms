@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { adaptUiSchema, UISchemaElement } from '../src/ui-schema-adapter';
-import { CONFIG, resetConfig } from '../src/config';
+import { adaptUiSchema, UISchemaElement } from '../src/core/ui-schema-adapter';
+import { CONFIG, resetConfig } from '../src/core/config';
 
 describe('ui-schema-adapter', () => {
   beforeEach(() => {
@@ -20,8 +20,7 @@ describe('ui-schema-adapter', () => {
 
     expect(CONFIG.layout.groups["Person"]).toHaveLength(1);
     expect(CONFIG.layout.groups["Person"][0]).toEqual({
-      keys: ["firstName", "lastName"],
-      className: "d-flex gap-3"
+      keys: ["firstName", "lastName"]
     });
     expect(CONFIG.sorting.perObjectPriority["Person"]).toEqual(["firstName", "lastName"]);
   });

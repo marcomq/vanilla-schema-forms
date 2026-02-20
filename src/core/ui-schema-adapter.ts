@@ -31,7 +31,7 @@ export function adaptUiSchema(uiSchema: UISchemaElement, rootId: string) {
         keys.push(...processElement(child));
       });
       if (keys.length) {
-        groups.push({ keys, className: "d-flex gap-3" });
+        groups.push({ keys });
       }
       collectedKeys.push(...keys);
     } else if (el.type === "Group" && el.elements) {

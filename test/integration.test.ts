@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parseSchema } from '../src/parser';
-import { renderForm } from '../src/renderer';
-import { Store } from '../src/state';
-import { generateDefaultData } from '../src/form-data-reader';
-import { CONFIG } from '../src/config';
+import { parseSchema } from '../src/core/parser';
+import { renderForm } from '../src/vanilla-renderer/renderer';
+import { Store } from '../src/core/state';
+import { generateDefaultData } from '../src/core/form-data-reader';
+import { CONFIG } from '../src/core/config';
 
 describe('Integration Tests', () => {
   let container: HTMLElement;

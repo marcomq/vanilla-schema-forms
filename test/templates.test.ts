@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { domRenderer } from '../src/dom-renderer';
-import { FormNode } from '../src/parser';
+import { domRenderer } from '../src/vanilla-renderer/dom-renderer';
+import { FormNode } from '../src/core/parser';
 
 describe('Templates', () => {
   it('renderString should include validation attributes', () => {

@@ -1,8 +1,9 @@
 import { 
   init, 
   setConfig, 
-  resetConfig, 
-  resetI18n, 
+  resetConfig,
+  resetCustomRenderers,
+  resetI18n,
   adaptUiSchema, 
   setCustomRenderers, 
   setI18n, 
@@ -187,15 +188,6 @@ const els = {
 // Store the original renderer functions to reset monkey-patching
 const originalRenderFieldWrapper = domRenderer.renderFieldWrapper;
 
-// Keys from customization.js to reset custom renderers
-const customRendererKeys = [
-  "tls", "routes", "middlewares", "value",
-  "aws", "kafka", "nats", "file", "static", "memory", "amqp", 
-  "mongodb", "mqtt", "http", "ibmmq", "zeromq", "switch", 
-  "response", "custom"
-];
-const renderersToReset = Object.fromEntries(customRendererKeys.map(k => [k, {} as any]));
-
 /**
  * Resets all global library state that might be modified by a config script.
  * This is crucial for the playground to prevent configs from leaking between examples.
@@ -203,7 +195,7 @@ const renderersToReset = Object.fromEntries(customRendererKeys.map(k => [k, {} a
 function resetAll() {
   resetConfig();
   resetI18n();
-  setCustomRenderers(renderersToReset); // Effectively clears the custom renderers
+  resetCustomRenderers();
   domRenderer.renderFieldWrapper = originalRenderFieldWrapper;
 }
 
