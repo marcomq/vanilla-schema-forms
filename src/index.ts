@@ -62,11 +62,24 @@ export async function createForm(
       try {
         const response = await fetch(schema);
         if (!response.ok) {
-          throw new Error(`HTTP error ${response.status} ${response.statusText}`);
+          let body = "";
+          try {
+            body = await response.text();
+          } catch (err) {
+            console.warn("Failed to read response body", err);
+          }
+          throw new Error(
+            `HTTP error ${response.status} ${response.statusText}: ${body}`,
+          );
+
         }
         schemaObj = await response.json();
       } catch (e) {
-        throw new Error(`Failed to load schema from "${schema}": ${e instanceof Error ? e.message : String(e)}`);
+        const err = new Error(`Failed to load schema from "${schema}": ${e instanceof Error ? e.message : String(e)}`);
+        if (e instanceof Error && e.stack) {
+          err.stack = e.stack;
+        }
+        throw err;
       }
     }  else {
       schemaObj = schema;
@@ -108,9 +121,7 @@ export async function createForm(
     rootNode = hydrateNodeWithData(rootNode, finalData);
   }
 
-  const store = new Store<Record<string, any>>({});
-  
-  // Initialize store
+  const store = new Store<typeof finalData>(finalData);
   store.reset(finalData);
 
   return { rootNode, store, finalData };

@@ -1,7 +1,8 @@
 import Ajv2020 from "ajv/dist/2020.js";
-import { ErrorObject, ValidateFunction } from "ajv";
+import { ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import { JSONSchema } from "json-schema-to-ts";
+import { ErrorObject } from "./types";
 
 let ajv: Ajv2020;
 let validateFn: ValidateFunction | null = null;
