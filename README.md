@@ -119,13 +119,7 @@ You can override the rendering of specific fields based on their key or path.
 import { setCustomRenderers, domRenderer } from "./src/index";
 
 setCustomRenderers({
-  // 1. Widget Override: Use a specific widget (e.g., select) for a field
-  "environment": {
-    widget: "select",
-    options: ["dev", "stage", "prod"]
-  },
-
-  // 2. Full Custom Renderer: Complete control over the DOM element
+  // Set Custom Renderer: Complete control over the DOM element
   "color": {
     render: (node, path, elementId, dataPath, context) => {
       const input = document.createElement("input");
@@ -139,6 +133,15 @@ setCustomRenderers({
   }
 });
 ```
+
+### Customization Guidelines & Best Practices
+
+Customizing the rendering logic provides great flexibility but can lead to maintenance issues if not structured correctly.
+
+1.  **Preserve Event Bubbling**: The core architecture relies on `change` and `input` events bubbling up from form elements. If you build a custom widget (e.g., a `div`-based switch), ensure it dispatches a `change` event or updates a hidden `<input>` element. Without this, validation and data retrieval will fail.
+2.  **Use `domRenderer` Helpers**: Avoid re-implementing standard logic. Use `domRenderer.renderFieldWrapper` to wrap your custom inputs. This ensures consistent rendering of labels, descriptions, and error placeholders.
+3.  **Avoid Monolithic Renderers**: Don't create a single "Master Renderer" with huge `if/else` blocks. Register small, specific renderers for specific keys or types using `setCustomRenderers`.
+4.  **Security**: Avoid using `innerHTML` to prevent XSS vulnerabilities. Use `document.createElement` or the internal `h()` hyperscript helper.
 
 ### Layout Grouping
 
@@ -181,6 +184,52 @@ const uiSchema = {
 // Applies the UI Schema to the object with ID "Connection"
 adaptUiSchema(uiSchema, "Connection");
 ```
+
+### Architectural Vision: Supporting UI Frameworks (React, etc.)
+
+While the current implementation is a lightweight, dependency-free DOM renderer, a primary goal is to evolve the architecture to seamlessly support modern UI frameworks like React. The current approach of mounting framework components inside a vanilla renderer can be complex and inefficient for full-form customizations.
+
+To make this easier and more robust, the plan is to refactor the library into a "headless" core engine with separate, optional renderer packages.
+
+**The Proposed Structure:**
+
+1.  **`@vanilla-schema-forms/core`**: A framework-agnostic engine that handles:
+    *   Schema parsing, dereferencing, and transformation into the `FormNode` tree.
+    *   AJV-based validation.
+    *   State management (data and errors).
+    *   Configuration and UI schema adaptation.
+    *   **It will have zero DOM rendering logic.**
+
+2.  **`@vanilla-schema-forms/vanilla-renderer`**: The default, lightweight renderer (the current implementation), which consumes the core engine to render standard HTML elements.
+
+3.  **`@vanilla-schema-forms/react-renderer`**: A new package that provides React hooks and components to build forms.
+    *   A `useForm()` hook that connects to the core engine.
+    *   A `<Field />` component that can dynamically render the correct input based on the `FormNode`.
+    *   A system for providing a custom set of components (e.g., a Material UI renderer set).
+
+**What this means for you:**
+
+With this architecture, building a fully custom form with React and Material UI would become straightforward:
+
+```jsx
+// Future-state example
+import { VanillaSchemaForm } from '@vanilla-schema-forms/react-renderer';
+import { materialRenderers } from '@vanilla-schema-forms/material-renderer';
+
+function MyForm({ schema }) {
+  return (
+    <VanillaSchemaForm
+      schema={schema}
+      renderers={materialRenderers}
+      onChange={(data, errors) => console.log(data, errors)}
+    />
+  );
+}
+```
+
+This approach separates the complex business logic of schema processing from the presentation layer, making the library far more flexible and easier to integrate into any project, while still offering a zero-dependency option for those who need it.
+
+
 
 ## Testing
 
