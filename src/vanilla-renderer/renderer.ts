@@ -334,6 +334,9 @@ export const createTypeSelectArrayRenderer = ({
   itemLabel = "Item",
 }: { buttonLabel?: string, itemLabel?: string } = {}): CustomRenderer<Node> => ({
   render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+    if (!node.items) {
+        return domRenderer.renderUnsupported(node);
+    }
     const itemsContainerId = `${elementId}-items`;
     const itemsContainer = h("div", {
       className: rendererConfig.classes.arrayItems,

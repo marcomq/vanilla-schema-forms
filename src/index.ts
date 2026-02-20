@@ -27,7 +27,8 @@ export { domRenderer, rendererConfig, renderCompactFieldWrapper };
 export { validateAndShowErrors, resolvePath };
 export { parseSchema } from "./core/parser";
 export { Store } from "./core/state";
-export type { FormNode } from "./core/types";
+export type { FormNode } from "./core/parser";
+export type { ErrorObject } from "./core/types";
 
 let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 
@@ -48,7 +49,7 @@ export interface RenderOptions {
  * This is useful for creating custom renderers (e.g. React, Vue) that consume the core logic.
  */
 export async function createForm(
-  schemaOrUrl: string | any, 
+  schemaOrUrl: string | Record<string, any>, 
   initialData?: any, 
   renderOptions?: RenderOptions
 ) {
@@ -56,9 +57,20 @@ export async function createForm(
   let data = initialData;
 
   if (renderOptions?.subSchemaPath) {
-    // Ensure schema is an object before traversing
-    let schemaObj = typeof schema === 'string' ? await (await fetch(schema)).json() : schema;
-    
+    let schemaObj: any;
+    if (typeof schema === 'string') {
+      try {
+        const response = await fetch(schema);
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status} ${response.statusText}`);
+        }
+        schemaObj = await response.json();
+      } catch (e) {
+        throw new Error(`Failed to load schema from "${schema}": ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }  else {
+      schemaObj = schema;
+    }
     const pathParts = renderOptions.subSchemaPath.split('.');
     let subSchema: any = schemaObj;
     let subData: any = data;
@@ -115,7 +127,7 @@ export async function createForm(
  */
 export async function init(
   containerOrId: string | HTMLElement, 
-  schemaOrUrl: string | any, 
+  schemaOrUrl: string | Record<string, any>, 
   initialDataOrCallback?: any, 
   onDataChangeCallback?: (data: any) => void,
   renderOptions?: RenderOptions
@@ -199,7 +211,7 @@ export async function init(
  * @param schemaOrUrl - The JSON schema object or a URL to fetch it from.
  * @param outputId - The ID of the HTML element to update with the JSON data.
  */
-export async function initLinked(containerOrId: string | HTMLElement, schemaOrUrl: string | any, outputId: string) {
+export async function initLinked(containerOrId: string | HTMLElement, schemaOrUrl: string | Record<string, any>, outputId: string) {
   const outputElement = document.getElementById(outputId);
 
   return init(containerOrId, schemaOrUrl, undefined, (data) => {

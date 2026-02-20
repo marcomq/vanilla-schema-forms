@@ -17,7 +17,9 @@ describe('transformSchemaToFormNode', () => {
       maxLength: undefined,
       minimum: undefined,
       maximum: undefined,
-      pattern: undefined
+      pattern: undefined,
+      format: undefined,
+      readOnly: undefined
     });
   });
 

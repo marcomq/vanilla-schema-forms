@@ -36,7 +36,9 @@ export function initValidator(schema: JSONSchema) {
 }
 
 export function validateData(data: any): ErrorObject[] | null {
-  if (!validateFn) return null;
+  if (!validateFn) {
+    throw new Error("Validator not initialized. Call initValidator(schema) first.");
+  }
   const valid = validateFn(data);
   if (valid) return null;
   return validateFn.errors || null;
