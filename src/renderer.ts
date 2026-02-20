@@ -6,12 +6,7 @@ import { CONFIG } from "./config";
 import { h } from "./hyperscript";
 import { generateDefaultData } from "./form-data-reader";
 
-export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {
-  "mode": {
-    widget: "select",
-    options: ["consumer", "subscriber"]
-  }
-};
+export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {};
 
 /**
  * Renders a form into the container based on the parsed schema tree.
@@ -119,11 +114,6 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
     return renderer.render(node, path, elementId, dataPath, context);
   }
 
-  // 2. Widget Overrides
-  if (renderer?.widget === 'select') {
-    return domRenderer.renderSelect(node, elementId, renderer.options || [], name);
-  }
-
   if (node.enum) {
     return domRenderer.renderSelect(node, elementId, node.enum.map(String), name);
   }
@@ -225,7 +215,7 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
         const renderer = findCustomRenderer(context, elementId);
         
         const rowNode = renderer?.renderAdditionalPropertyRow 
-          ? renderer.renderAdditionalPropertyRow(valueNodeRendered, key, uniqueId)
+          ? renderer.renderAdditionalPropertyRow(valueNodeRendered, key, uniqueId, dataPath, context)
           : domRenderer.renderAdditionalPropertyRow(valueNodeRendered, key, uniqueId);
           
         container.appendChild(rowNode);

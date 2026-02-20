@@ -54,17 +54,6 @@ export interface CustomRenderer<T = Node> {
   render?: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => T;
   
   /**
-   * Specifies a built-in widget type to use instead of the default for the schema type.
-   * Currently supported: "select".
-   */
-  widget?: string;
-  
-  /**
-   * If widget is "select", this provides the list of options to display.
-   */
-  options?: string[];
-  
-  /**
    * For Additional Properties (Maps): Generates a default key for a new item.
    * 
    * @param index The index of the new item being added.
@@ -75,10 +64,12 @@ export interface CustomRenderer<T = Node> {
   /**
    * For Additional Properties (Maps): Customizes the rendering of a single key-value row.
    * 
-   * @param valueHtml The rendered value element (result of renderNode for the value).
+   * @param valueNode The rendered value element (result of renderNode for the value).
    * @param defaultKey The initial key for this row.
    * @param uniqueId A unique ID for the key input field.
-   * @returns The rendered row element.
+   * @param parentDataPath The data path of the parent object containing the additional properties.
+   * @param context The full render context.
+   * @returns The rendered row element (usually a DOM Node).
    */
-  renderAdditionalPropertyRow?: (valueHtml: T, defaultKey: string, uniqueId: string) => T;
+  renderAdditionalPropertyRow?: (valueNode: T, defaultKey: string, uniqueId: string, parentDataPath: (string | number)[], context: RenderContext) => T;
 }

@@ -5,7 +5,6 @@ export interface UISchemaElement {
   elements?: UISchemaElement[];
   scope?: string;
   label?: string;
-  options?: any;
 }
 
 /**

@@ -16,7 +16,8 @@ export {
   getName,
   createTypeSelectArrayRenderer,
   createAdvancedOptionsRenderer,
-  createOptionalRenderer
+  createOptionalRenderer,
+  hydrateNodeWithData
 } from "./renderer";
 export type { RenderContext, CustomRenderer } from "./types";
 export { generateDefaultData } from "./form-data-reader";
@@ -29,6 +30,10 @@ let globalCustomRenderers: Record<string, CustomRenderer<any>> = {};
 
 export function setCustomRenderers(renderers: Record<string, CustomRenderer<any>>) {
   globalCustomRenderers = { ...globalCustomRenderers, ...renderers };
+}
+
+export function resetCustomRenderers() {
+  globalCustomRenderers = {};
 }
 
 export interface RenderOptions {

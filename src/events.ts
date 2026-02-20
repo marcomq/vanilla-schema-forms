@@ -378,7 +378,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     const uniqueId = `${elementId}.__ap_${index}_key`;
     
     const rowNode = renderer?.renderAdditionalPropertyRow 
-      ? renderer.renderAdditionalPropertyRow(valueNodeRendered, defaultKey, uniqueId)
+      ? renderer.renderAdditionalPropertyRow(valueNodeRendered, defaultKey, uniqueId, parentDataPath, context)
       : domRenderer.renderAdditionalPropertyRow(valueNodeRendered, defaultKey, uniqueId);
     container.appendChild(rowNode);
 

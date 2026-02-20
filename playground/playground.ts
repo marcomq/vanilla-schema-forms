@@ -17,7 +17,8 @@ import {
   renderCompactFieldWrapper,
   createTypeSelectArrayRenderer,
   createAdvancedOptionsRenderer,
-  createOptionalRenderer
+  createOptionalRenderer,
+  hydrateNodeWithData
 } from '../src/index';
 import complexSchema from './schema.json';
 // @ts-ignore
@@ -188,7 +189,7 @@ const originalRenderFieldWrapper = domRenderer.renderFieldWrapper;
 
 // Keys from customization.js to reset custom renderers
 const customRendererKeys = [
-  "tls", "routes", "middlewares", "output.mode", "value",
+  "tls", "routes", "middlewares", "value",
   "aws", "kafka", "nats", "file", "static", "memory", "amqp", 
   "mongodb", "mqtt", "http", "ibmmq", "zeromq", "switch", 
   "response", "custom"
@@ -261,6 +262,7 @@ async function render() {
         "createTypeSelectArrayRenderer",
         "createAdvancedOptionsRenderer",
         "createOptionalRenderer",
+        "hydrateNodeWithData",
         code,
       );
       config = fn(
@@ -283,6 +285,7 @@ async function render() {
         createTypeSelectArrayRenderer,
         createAdvancedOptionsRenderer,
         createOptionalRenderer,
+        hydrateNodeWithData,
       );
     }
   } catch (e) {

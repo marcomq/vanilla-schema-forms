@@ -14,7 +14,7 @@ export const DEFAULT_CONFIG = {
   },
   parser: {
     titleCandidates: [
-      'type', 'name', 'kind', 'id', 'mode', 'strategy', 'action', 'method', 'service', 'provider'
+      'type', 'name', 'kind', 'id', 'strategy', 'action', 'method', 'service', 'provider'
     ] as string[]
   },
   layout: {
