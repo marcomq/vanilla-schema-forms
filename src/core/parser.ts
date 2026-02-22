@@ -166,6 +166,13 @@ export function transformSchemaToFormNode(
     readOnly: schemaObj.readOnly,
   };
 
+  if (schemaObj.const !== undefined) {
+    node.enum = [schemaObj.const];
+    if (node.defaultValue === undefined) {
+      node.defaultValue = schemaObj.const;
+    }
+  }
+
   // Handle oneOf
   const selection = schemaObj.oneOf || schemaObj.anyOf;
   if (selection) {

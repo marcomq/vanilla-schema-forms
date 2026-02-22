@@ -346,7 +346,31 @@ export const domRenderer: TemplateRenderer<Node> = {
 
     const selectContainer = h(rendererConfig.elements.oneOf, { 'data-element-id': elementId }, selectEl, contentContainer);
     
-    const wrapperNode = { ...node, title: getUiText("type_variant", "Type / Variant"), description: undefined, required: false, _inputId: `${elementId}__selector` };
+    let label = getUiText("type_variant", "Type / Variant");
+
+    if (node.oneOf && node.oneOf.length > 0) {
+      const firstOpt = node.oneOf[0];
+      if (firstOpt.properties) {
+        const keys = Object.keys(firstOpt.properties);
+        for (const key of keys) {
+          const isDiscriminator = node.oneOf.every(opt => 
+            opt.properties && 
+            opt.properties[key] && 
+            opt.properties[key].enum && 
+            opt.properties[key].enum?.length === 1
+          );
+          if (isDiscriminator) {
+            label = firstOpt.properties[key].title || key;
+            if (!firstOpt.properties[key].title) {
+              label = label.charAt(0).toUpperCase() + label.slice(1);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    const wrapperNode = { ...node, title: label, description: undefined, required: false, _inputId: `${elementId}__selector` };
     return domRenderer.renderFieldWrapper(wrapperNode, elementId, selectContainer, rendererConfig.classes.oneOfWrapper);
   },
   renderArray: (node: FormNode, elementId: string, options?: { isFixedSize?: boolean }): Node => {
