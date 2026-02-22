@@ -10,7 +10,7 @@ export interface TemplateRenderer<T> {
   renderSelect(node: FormNode, elementId: string, options: string[], name: string): T;
   renderObject(node: FormNode, elementId: string, content: T): T;
   renderAdditionalProperties(node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): T;
-  renderOneOf(node: FormNode, elementId: string, name: string): T;
+  renderOneOf(node: FormNode, elementId: string, name: string, selectedIndex?: number, content?: T): T;
   renderArray(node: FormNode, elementId: string, options?: { isFixedSize?: boolean }): T;
   renderArrayItem(item: T, options?: { isRemovable?: boolean }): T;
   renderAdditionalPropertyRow(value: T, defaultKey?: string, uniqueId?: string): T;
@@ -34,7 +34,7 @@ export interface RenderContext {
 }
 
 export interface CustomRenderer<T = Node> {
-  render?: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => T;
+  render?: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless?: boolean) => T;
   getDefaultKey?: (index: number) => string;
   renderAdditionalPropertyRow?: (valueNode: T, defaultKey: string, uniqueId: string, parentDataPath: (string | number)[], context: RenderContext) => T;
 }

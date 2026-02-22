@@ -28,6 +28,7 @@ export interface FormNode {
   pattern?: string;
   format?: string;
   readOnly?: boolean;
+  hidden?: boolean;
   // ... other properties we might need for rendering
 }
 
@@ -186,6 +187,20 @@ export function transformSchemaToFormNode(
       if (!subNode.title || subNode.title.startsWith('Option ')) {
         subNode.title = subTitle;
       }
+
+      // Find the property that was likely used as the discriminator/title and remove it
+      // to prevent it from being rendered inside the oneOf content.
+      if (subNode.properties) {
+        const discriminators = ["mode", "type", "kind"];
+        for (const key of discriminators) {
+          if (subNode.properties[key] && subNode.properties[key].enum?.length === 1) {
+            // This property is a 'const' or single-value enum, and is a common discriminator.
+            // It's already represented by the oneOf dropdown, so don't render it again.
+            subNode.properties[key].hidden = true;
+            break; // Assume only one discriminator
+          }
+        }
+      }
       return subNode;
     });
   }
@@ -216,12 +231,16 @@ export function transformSchemaToFormNode(
       if (typeof schemaObj.additionalProperties === "boolean") {
         node.additionalProperties = schemaObj.additionalProperties;
       } else {
-        node.additionalProperties = transformSchemaToFormNode(
+        const apValueNode = transformSchemaToFormNode(
           schemaObj.additionalProperties as JSONSchema,
           "Additional Property",
           depth + 1,
           false
         );
+        // The title/description for an AP's value is not desired in the UI.
+        apValueNode.title = '';
+        apValueNode.description = '';
+        node.additionalProperties = apValueNode;
       }
     }
   }
@@ -270,6 +289,17 @@ function inferTitle(schema: JSONSchema, index: number): string {
   if (schemaObj.properties) {
     const keys = Object.keys(schemaObj.properties);
     if (keys.length === 1) return keys[0];
+  }
+
+  // Prioritize common discriminator fields
+  const discriminators = ["mode", "type", "kind"];
+  if (schemaObj.properties) {
+    for (const key of discriminators) {
+      if (schemaObj.properties[key]) {
+        const val = getConstOrEnum(schemaObj.properties[key] as JSONSchema);
+        if (val) return val;
+      }
+    }
   }
 
   const candidates = CONFIG.parser.titleCandidates;
