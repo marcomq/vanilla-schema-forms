@@ -19,7 +19,8 @@ import {
   createTypeSelectArrayRenderer,
   createAdvancedOptionsRenderer,
   createOptionalRenderer,
-  hydrateNodeWithData
+  hydrateNodeWithData,
+  rendererConfig
 } from '../src/index';
 import complexSchema from './schema.json';
 // @ts-ignore
@@ -255,6 +256,7 @@ async function render() {
         "createAdvancedOptionsRenderer",
         "createOptionalRenderer",
         "hydrateNodeWithData",
+        "rendererConfig",
         code,
       );
       config = fn(
@@ -278,6 +280,7 @@ async function render() {
         createAdvancedOptionsRenderer,
         createOptionalRenderer,
         hydrateNodeWithData,
+        rendererConfig
       );
     }
   } catch (e) {
