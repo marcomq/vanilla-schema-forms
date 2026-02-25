@@ -121,6 +121,25 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   // 3. Standard Types
   switch (node.type) {
     case "string": return domRenderer.renderString(node, elementId, name);
+    case "json": {
+      const rendered = domRenderer.renderJson(node, elementId, name);
+      const textarea = (rendered as Element).querySelector('textarea');
+      if (textarea) {
+        textarea.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const target = e.target as HTMLTextAreaElement;
+          try {
+            const val = JSON.parse(target.value);
+            target.classList.remove('is-invalid');
+            const storePath = dataPath.length > 0 ? dataPath.slice(1) : [];
+            context.store.setPath(storePath, val);
+          } catch (error) {
+            target.classList.add('is-invalid');
+          }
+        });
+      }
+      return rendered;
+    }
     case "number":
     case "integer": {
       // Prevent "null" string in value attribute for number inputs which causes browser warnings
@@ -368,7 +387,7 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
         newNode.properties[key] = hydrateNodeWithData(newNode.properties[key], data[key]);
       }
     }
-  } else if (['string', 'number', 'integer', 'boolean'].includes(newNode.type)) {
+  } else if (['string', 'number', 'integer', 'boolean', 'json'].includes(newNode.type)) {
     let isValid = true;
     if (newNode.enum && newNode.enum.length > 0) {
       if (!newNode.enum.includes(data)) {

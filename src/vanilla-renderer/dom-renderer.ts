@@ -7,6 +7,7 @@ export const rendererConfig = {
   elements: {
     input: 'input',
     select: 'select',
+    textarea: 'textarea',
     label: 'label',
     fieldset: 'fieldset',
     legend: 'legend',
@@ -145,6 +146,25 @@ export const domRenderer: TemplateRenderer<Node> = {
     }
 
     const inputEl = h(rendererConfig.elements.input, attrs);
+    return domRenderer.renderFieldWrapper(node, elementId, inputEl);
+  },
+  renderJson: (node: FormNode, elementId: string, name: string): Node => {
+    const attrs: { [key: string]: any } = {
+      className: rendererConfig.classes.input,
+      id: elementId,
+      name: name,
+      rows: 10,
+      style: 'font-family: monospace;'
+    };
+
+    if (node.defaultValue !== undefined) {
+      attrs.value = JSON.stringify(node.defaultValue, null, 2);
+    }
+
+    if (node.required) attrs.required = true;
+    if (node.readOnly) attrs.disabled = true;
+
+    const inputEl = h(rendererConfig.elements.textarea, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
 

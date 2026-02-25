@@ -48,6 +48,10 @@ function setupStoreIntegration(context: RenderContext, container: HTMLElement) {
     // Ignore internal selector inputs (handled by change listener for UI, not data)
     if (target.id.endsWith('__selector')) return;
 
+    // Ignore JSON inputs (handled by specific change listener in renderer.ts)
+    const node = context.nodeRegistry.get(target.id);
+    if (node && node.type === 'json') return;
+
     // Handle AP Key Rename
     if (target.classList.contains(rendererConfig.triggers.additionalPropertyKey)) {
       handleApKeyRename(context, target as HTMLInputElement);

@@ -5,6 +5,7 @@ export interface TemplateRenderer<T> {
   renderFieldWrapper(node: FormNode, elementId: string, input: T, className?: string): T;
   renderFieldsetWrapper(node: FormNode, elementId: string, content: T, className?: string): T;
   renderString(node: FormNode, elementId: string, name: string): T;
+  renderJson(node: FormNode, elementId: string, name: string): T;
   renderNumber(node: FormNode, elementId: string, name: string): T;
   renderBoolean(node: FormNode, elementId: string, name: string, attributes?: string): T;
   renderSelect(node: FormNode, elementId: string, options: string[], name: string): T;

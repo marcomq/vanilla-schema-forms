@@ -10,7 +10,7 @@ import { initValidator } from "./validator";
  */
 export interface FormNode {
   key?: string;
-  type: string; // e.g., 'string', 'number', 'boolean', 'object', 'array'
+  type: string; // e.g., 'string', 'number', 'boolean', 'object', 'array', 'json'
   title: string;
   description?: string;
   defaultValue?: any;
@@ -114,7 +114,10 @@ export function transformSchemaToFormNode(
   }
 
   if (typeof schema === "boolean") {
-    return { type: "boolean", title: key };
+    if (schema === true) {
+      return { type: "json", title: key, description: "Enter valid JSON" };
+    }
+    return { type: "boolean", title: key, readOnly: true };
   }
 
   let schemaObj = schema as Exclude<JSONSchema, boolean>;
