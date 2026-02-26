@@ -288,12 +288,6 @@ function inferTitle(schema: JSONSchema, index: number): string {
   const directVal = getConstOrEnum(schemaObj);
   if (directVal) return directVal;
   
-  // Heuristic: If the object has exactly one property, use that property name as the title.
-  if (schemaObj.properties) {
-    const keys = Object.keys(schemaObj.properties);
-    if (keys.length === 1) return keys[0];
-  }
-
   // Prioritize common discriminator fields
   const discriminators = ["mode", "type", "kind"];
   if (schemaObj.properties) {
@@ -303,6 +297,12 @@ function inferTitle(schema: JSONSchema, index: number): string {
         if (val) return val;
       }
     }
+  }
+
+  // Heuristic: If the object has exactly one property, use that property name as the title.
+  if (schemaObj.properties) {
+    const keys = Object.keys(schemaObj.properties);
+    if (keys.length === 1) return keys[0];
   }
 
   const candidates = CONFIG.parser.titleCandidates;

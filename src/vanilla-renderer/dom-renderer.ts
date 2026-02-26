@@ -157,14 +157,12 @@ export const domRenderer: TemplateRenderer<Node> = {
       style: 'font-family: monospace;'
     };
 
-    if (node.defaultValue !== undefined) {
-      attrs.value = JSON.stringify(node.defaultValue, null, 2);
-    }
+    const initial = node.defaultValue !== undefined ? JSON.stringify(node.defaultValue, null, 2) : undefined;
 
     if (node.required) attrs.required = true;
     if (node.readOnly) attrs.disabled = true;
 
-    const inputEl = h(rendererConfig.elements.textarea, attrs);
+    const inputEl = initial !== undefined ? h(rendererConfig.elements.textarea, attrs, initial) : h(rendererConfig.elements.textarea, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
 

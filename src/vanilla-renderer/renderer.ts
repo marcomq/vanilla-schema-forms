@@ -1,6 +1,6 @@
 import { FormNode } from "../core/parser";
 import { RenderContext, CustomRenderer } from "./types";
-import { attachInteractivity } from "./events";
+import { attachInteractivity, validateAndShowErrors } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
 import { CONFIG } from "../core/config";
 import { h } from "./hyperscript";
@@ -133,6 +133,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
             target.classList.remove('is-invalid');
             const storePath = dataPath.length > 0 ? dataPath.slice(1) : [];
             context.store.setPath(storePath, val);
+            validateAndShowErrors(context);
           } catch (error) {
             target.classList.add('is-invalid');
           }
@@ -736,7 +737,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
 
     // Fallback to standard object rendering if toggle property is missing
     if (!toggleProp) {
-      return renderObject(context, node, elementId, false, dataPath);
+      return renderObject(context, node, elementId, headless, dataPath);
     }
 
     const otherProps = { ...node.properties };

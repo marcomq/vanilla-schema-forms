@@ -219,19 +219,22 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     }
 
     // Calculate new data BEFORE rendering to ensure hydration includes defaults
-    let newData: any = {};
+    const optionData = generateDefaultData(rawNode);
+    let newData: any;
 
-    // User Switch: Reset to defaults, preserving only common properties from parent
-    if (node.properties) {
-      for (const key in node.properties) {
-        if (currentData[key] !== undefined) {
-          newData[key] = currentData[key];
+    if (typeof optionData === 'object' && optionData !== null && !Array.isArray(optionData)) {
+      newData = {};
+      // User Switch: Reset to defaults, preserving only common properties from parent
+      if (node.properties && typeof currentData === 'object' && currentData !== null && !Array.isArray(currentData)) {
+        for (const key in node.properties) {
+          if (currentData[key] !== undefined) {
+            newData[key] = currentData[key];
+          }
         }
       }
-    }
-    const optionData = generateDefaultData(rawNode);
-    if (typeof optionData === 'object' && optionData !== null) {
-       Object.assign(newData, optionData);
+      Object.assign(newData, optionData);
+    } else {
+      newData = optionData;
     }
 
     // Hydrate selectedNode with the effective data
