@@ -221,6 +221,7 @@ const advancedOptionsRenderer = createAdvancedOptionsRenderer([
   "collection",
   "queue_url",
   "endpoint_url",
+  "default",
 ]);
 
 /**

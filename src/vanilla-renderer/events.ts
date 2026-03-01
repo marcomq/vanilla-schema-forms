@@ -197,8 +197,14 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
 
   if (node && node.oneOf && contentContainer) {
     const selectedIdx = parseInt(target.value, 10);
-    if (isNaN(selectedIdx)) {
+    if (isNaN(selectedIdx) || selectedIdx < 0 || selectedIdx >= node.oneOf.length) {
       contentContainer.innerHTML = ''; // Clear content if selection is invalid (e.g. placeholder)
+      
+      const storePath = resolvePath(context, elementId!);
+      if (storePath) {
+        context.store.removePath(storePath);
+      }
+      validateAndShowErrors(context);
       return;
     }
     let selectedNode = node.oneOf[selectedIdx];

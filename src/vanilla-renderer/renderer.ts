@@ -107,6 +107,54 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
   context.elementIdToDataPath.set(elementId, dataPath);
 
+  // Unwrap Optional<Endpoint> (anyOf: [Endpoint, null]) to just Endpoint
+  // This prevents double selectors and validation issues with primitive null.
+  if (node.oneOf && node.oneOf.length === 2) {
+    const nullIdx = node.oneOf.findIndex(o => o.type === 'null');
+    if (nullIdx !== -1) {
+      const otherIdx = nullIdx === 0 ? 1 : 0;
+      const otherNode = node.oneOf[otherIdx];
+      
+      // Check if it's a complex type (object or has oneOf) that we want to unwrap
+      if (otherNode.type === 'object' || otherNode.oneOf) {
+         let nodeToRender = otherNode;
+         
+         // Map primitive null data to the target type's null variant if needed
+         if (node.defaultValue === null && otherNode.oneOf) {
+            const nullVariant = otherNode.oneOf.find(opt => 
+               opt.type === 'null' || 
+               (opt.title && opt.title.toLowerCase() === 'null') ||
+               (opt.type === 'object' && opt.properties && 'null' in opt.properties)
+            );
+            
+            if (nullVariant) {
+               const nullData = generateDefaultData(nullVariant);
+               const baseData: any = {};
+               if (otherNode.properties) {
+                   for (const key in otherNode.properties) {
+                       const prop = otherNode.properties[key];
+                       if (prop.defaultValue !== undefined) baseData[key] = prop.defaultValue;
+                       else if (prop.type === 'array') baseData[key] = [];
+                   }
+               }
+               const newData = typeof nullData === 'object' && nullData !== null ? { ...baseData, ...nullData } : baseData;
+               nodeToRender = hydrateNodeWithData(otherNode, newData);
+            } else {
+               nodeToRender = hydrateNodeWithData(otherNode, node.defaultValue);
+            }
+         } else {
+            nodeToRender = hydrateNodeWithData(otherNode, node.defaultValue);
+         }
+         
+         nodeToRender.key = node.key;
+         nodeToRender.title = node.title;
+         nodeToRender.description = node.description;
+         
+         return renderNode(context, nodeToRender, path, headless, dataPath);
+      }
+    }
+  }
+
   // 1. Custom Renderers
   const renderer = findCustomRenderer(context, elementId);
 
