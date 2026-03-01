@@ -499,7 +499,7 @@ function updateArrayIndices(context: RenderContext, container: HTMLElement, star
       if (el.id && el.id.startsWith(oldPrefix)) {
         el.id = el.id.replace(oldPrefix, newPrefix);
       }
-      ['name', 'for', 'data-target', 'data-id', 'data-toggle-target'].forEach(attr => {
+      ['name', 'for', 'data-target', 'data-id', 'data-toggle-target', 'data-element-id', 'data-validation-for'].forEach(attr => {
         if (el.hasAttribute(attr)) {
           const val = el.getAttribute(attr)!;
           if (val.startsWith(oldPrefix)) {
@@ -530,7 +530,7 @@ function updateAPIndices(context: RenderContext, container: HTMLElement, startIn
            const elements = [row, ...row.querySelectorAll('*')];
            elements.forEach(el => {
              if (el.id && el.id.startsWith(oldPrefix)) el.id = el.id.replace(oldPrefix, newPrefix);
-             ['name', 'for', 'data-target', 'data-id', 'data-toggle-target'].forEach(attr => {
+             ['name', 'for', 'data-target', 'data-id', 'data-toggle-target', 'data-element-id', 'data-validation-for'].forEach(attr => {
                 if (el.hasAttribute(attr) && el.getAttribute(attr)!.startsWith(oldPrefix)) {
                   el.setAttribute(attr, el.getAttribute(attr)!.replace(oldPrefix, newPrefix));
                 }
