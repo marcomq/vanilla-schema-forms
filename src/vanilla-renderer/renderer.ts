@@ -257,8 +257,26 @@ function getOneOfSelection(node: FormNode, data: any): number {
         if (typeof data === 'object') {
            if (opt.properties) {
              const dataKeys = Object.keys(data);
-             const propKeys = Object.keys(opt.properties);
-             if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) return true;
+             
+             // Check for explicit discriminator match in data
+             for (const key in opt.properties) {
+               const prop = opt.properties[key];
+               if (prop.enum && prop.enum.length === 1) {
+                 if (data[key] === prop.enum[0]) return true;
+               }
+             }
+
+             // Filter out properties that are likely discriminators or hidden
+             const meaningfulProps = Object.keys(opt.properties).filter(key => {
+               const prop = opt.properties![key];
+               return !prop.hidden && !(prop.enum && prop.enum.length === 1);
+             });
+
+             if (meaningfulProps.length === 1) {
+               const key = meaningfulProps[0];
+               if (dataKeys.includes(key)) return true;
+             }
+             
              if (Array.isArray(opt.required) && opt.required.length > 0 && opt.required.every((req: string) => dataKeys.includes(req))) return true;
            }
            return false;
@@ -479,9 +497,22 @@ export const createTypeSelectArrayRenderer = ({
         const dataKeys = Object.keys(itemData);
         node.items!.oneOf!.forEach((opt) => {
           if (opt.properties) {
-            const propKeys = Object.keys(opt.properties);
-            if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) {
-              selectedOption = opt;
+            // Check for explicit discriminator match
+            for (const key in opt.properties) {
+               const prop = opt.properties[key];
+               if (prop.enum && prop.enum.length === 1 && itemData[key] === prop.enum[0]) {
+                 selectedOption = opt;
+                 return;
+               }
+            }
+
+            const meaningfulProps = Object.keys(opt.properties).filter(key => {
+               const prop = opt.properties![key];
+               return !prop.hidden && !(prop.enum && prop.enum.length === 1);
+            });
+
+            if (meaningfulProps.length === 1 && dataKeys.includes(meaningfulProps[0])) {
+               selectedOption = opt;
             }
           }
         });
