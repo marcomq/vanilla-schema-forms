@@ -1,6 +1,6 @@
 import { FormNode } from "../core/parser";
 import { RenderContext, CustomRenderer } from "./types";
-import { attachInteractivity } from "./events";
+import { attachInteractivity, validateAndShowErrors } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
 import { CONFIG } from "../core/config";
 import { h } from "./hyperscript";
@@ -92,7 +92,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
     return domRenderer.renderFragment([]);
   }
 
-  if (context.config.visibility.hiddenPaths.includes(elementId) || context.config.visibility.hiddenKeys.includes(node.title)) {
+  if (context.config.visibility.hiddenPaths.includes(elementId) || context.config.visibility.hiddenKeys.includes(node.title) || node.hidden) {
     return domRenderer.renderFragment([]);
   }
   
@@ -107,11 +107,59 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
   context.elementIdToDataPath.set(elementId, dataPath);
 
+  // Unwrap Optional<Endpoint> (anyOf: [Endpoint, null]) to just Endpoint
+  // This prevents double selectors and validation issues with primitive null.
+  if (node.oneOf && node.oneOf.length === 2) {
+    const nullIdx = node.oneOf.findIndex(o => o.type === 'null');
+    if (nullIdx !== -1) {
+      const otherIdx = nullIdx === 0 ? 1 : 0;
+      const otherNode = node.oneOf[otherIdx];
+      
+      // Check if it's a complex type (object or has oneOf) that we want to unwrap
+      if (otherNode.type === 'object' || otherNode.oneOf) {
+         let nodeToRender = otherNode;
+         
+         // Map primitive null data to the target type's null variant if needed
+         if (node.defaultValue === null && otherNode.oneOf) {
+            const nullVariant = otherNode.oneOf.find(opt => 
+               opt.type === 'null' || 
+               (opt.title && opt.title.toLowerCase() === 'null') ||
+               (opt.type === 'object' && opt.properties && 'null' in opt.properties)
+            );
+            
+            if (nullVariant) {
+               const nullData = generateDefaultData(nullVariant);
+               const baseData: any = {};
+               if (otherNode.properties) {
+                   for (const key in otherNode.properties) {
+                       const prop = otherNode.properties[key];
+                       if (prop.defaultValue !== undefined) baseData[key] = prop.defaultValue;
+                       else if (prop.type === 'array') baseData[key] = [];
+                   }
+               }
+               const newData = typeof nullData === 'object' && nullData !== null ? { ...baseData, ...nullData } : baseData;
+               nodeToRender = hydrateNodeWithData(otherNode, newData);
+            } else {
+               nodeToRender = hydrateNodeWithData(otherNode, node.defaultValue);
+            }
+         } else {
+            nodeToRender = hydrateNodeWithData(otherNode, node.defaultValue);
+         }
+         
+         nodeToRender.key = node.key;
+         nodeToRender.title = node.title;
+         nodeToRender.description = node.description;
+         
+         return renderNode(context, nodeToRender, path, headless, dataPath);
+      }
+    }
+  }
+
   // 1. Custom Renderers
   const renderer = findCustomRenderer(context, elementId);
 
   if (renderer?.render) {
-    return renderer.render(node, path, elementId, dataPath, context);
+    return renderer.render(node, path, elementId, dataPath, context, headless);
   }
 
   if (node.enum) {
@@ -121,6 +169,26 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   // 3. Standard Types
   switch (node.type) {
     case "string": return domRenderer.renderString(node, elementId, name);
+    case "json": {
+      const rendered = domRenderer.renderJson(node, elementId, name);
+      const textarea = (rendered as Element).querySelector('textarea');
+      if (textarea) {
+        textarea.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const target = e.target as HTMLTextAreaElement;
+          try {
+            const val = JSON.parse(target.value);
+            target.classList.remove('is-invalid');
+            const storePath = dataPath.length > 0 ? dataPath.slice(1) : [];
+            context.store.setPath(storePath, val);
+            validateAndShowErrors(context);
+          } catch (error) {
+            target.classList.add('is-invalid');
+          }
+        });
+      }
+      return rendered;
+    }
     case "number":
     case "integer": {
       // Prevent "null" string in value attribute for number inputs which causes browser warnings
@@ -174,6 +242,46 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
 }
 
+function getOneOfSelection(node: FormNode, data: any): number {
+  if (!node.oneOf || node.oneOf.length === 0) return -1;
+  
+  let selectedIndex = -1;
+  if (data !== undefined) {
+    selectedIndex = node.oneOf.findIndex(opt => {
+        if (data === null) {
+           return opt.type === 'null' || (opt.title && opt.title.toLowerCase() === 'null');
+        }
+        if (Array.isArray(data)) {
+            return opt.type === 'array';
+        }
+        if (typeof data === 'object') {
+           if (opt.properties) {
+             const dataKeys = Object.keys(data);
+             const propKeys = Object.keys(opt.properties);
+             if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) return true;
+             if (Array.isArray(opt.required) && opt.required.length > 0 && opt.required.every((req: string) => dataKeys.includes(req))) return true;
+           }
+           return false;
+        }
+        if (opt.type === typeof data) return true;
+        if (opt.type === 'integer' && typeof data === 'number') return true;
+        return false;
+    });
+  }
+
+  if (selectedIndex === -1) {
+    selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
+    if (selectedIndex === -1) {
+      selectedIndex = node.oneOf.findIndex(opt => {
+        const title = (opt.title || '').toLowerCase();
+        return title === 'null' || title === 'none';
+      });
+    }
+    if (selectedIndex === -1) selectedIndex = 0;
+  }
+  return selectedIndex;
+}
+
 /**
  * Render an object node with its oneOf, properties and additional properties.
  * @param context - The render context
@@ -186,7 +294,26 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
  */
 export function renderObject(context: RenderContext, node: FormNode, elementId: string, headless: boolean, dataPath: (string | number)[], options?: { additionalProperties?: { title?: string | null, keyPattern?: string } }): Node {
   const name = getName(dataPath);
-  const oneOf = domRenderer.renderOneOf(node, elementId, name);
+  
+  const selectedIndex = getOneOfSelection(node, node.defaultValue);
+  let oneOfContent: Node | undefined;
+  
+  if (selectedIndex !== -1 && node.oneOf) {
+    const selectedNode = node.oneOf[selectedIndex];
+    // Merge defaults to ensure fields like "delete" are visible even if data is empty
+    const defaults = generateDefaultData(selectedNode);
+    let effectiveData = node.defaultValue;
+    if (typeof defaults === 'object' && defaults !== null) {
+        effectiveData = { ...defaults };
+        if (node.defaultValue && typeof node.defaultValue === 'object') {
+             Object.assign(effectiveData, node.defaultValue);
+        }
+    }
+    const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+    oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
+  }
+
+  const oneOf = domRenderer.renderOneOf(node, elementId, name, selectedIndex, oneOfContent);
   const props = node.properties ? renderProperties(context, node.properties, elementId, dataPath) : domRenderer.renderFragment([]);
   const ap = domRenderer.renderAdditionalProperties(node, elementId, options?.additionalProperties);
   
@@ -202,15 +329,16 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
 
         const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: '' } as FormNode;
         const valueNode = hydrateNodeWithData(valueSchema, node.defaultValue[key]);
-        valueNode.title = key; // Use key as title for display
+        // Title is intentionally cleared for AP values to avoid clutter.
+        valueNode.title = '';
         valueNode.key = key;   // Use key for segment generation
 
         const apDataPath = [...dataPath, key];
 
         const apId = `${elementId}.__ap_${apIndex}`; // This is the unique internal ID for the row
         // Render headless to avoid double borders (AP row already has border/container)
-        // Pass apId as the path prefix for all children of this AP value.
-        const valueNodeRendered = renderNode(context, valueNode, apId, true, apDataPath);
+        // Pass elementId as the path prefix for all children of this AP value to ensure ID matches data path.
+        const valueNodeRendered = renderNode(context, valueNode, elementId, true, apDataPath);
         const uniqueId = `${apId}_key`;
         const renderer = findCustomRenderer(context, elementId);
         
@@ -308,7 +436,7 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
         newNode.properties[key] = hydrateNodeWithData(newNode.properties[key], data[key]);
       }
     }
-  } else if (['string', 'number', 'integer', 'boolean'].includes(newNode.type)) {
+  } else if (['string', 'number', 'integer', 'boolean', 'json'].includes(newNode.type)) {
     let isValid = true;
     if (newNode.enum && newNode.enum.length > 0) {
       if (!newNode.enum.includes(data)) {
@@ -333,7 +461,7 @@ export const createTypeSelectArrayRenderer = ({
   buttonLabel = "Add Item",
   itemLabel = "Item",
 }: { buttonLabel?: string, itemLabel?: string } = {}): CustomRenderer<Node> => ({
-  render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+  render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless: boolean = false) => {
     if (!node.items) {
       return domRenderer.renderUnsupported(node);
     }
@@ -422,6 +550,14 @@ export const createTypeSelectArrayRenderer = ({
     );
 
     if (!node.items!.oneOf) {
+      if (headless) {
+        return h(
+          "div",
+          { className: rendererConfig.classes.headless, id: elementId },
+          itemsContainer,
+          addBtn
+        );
+      }
       // Fall back to a consistent fieldset structure for non-oneOf arrays
       return h(
         "fieldset",
@@ -492,6 +628,16 @@ export const createTypeSelectArrayRenderer = ({
       ...options,
     );
 
+    if (headless) {
+      return h(
+        "div",
+        { className: rendererConfig.classes.headless, id: elementId },
+        itemsContainer,
+        addBtn,
+        select
+      );
+    }
+
     return h(
       "fieldset",
       { className: rendererConfig.classes.fieldset, id: elementId },
@@ -511,7 +657,7 @@ export const createTypeSelectArrayRenderer = ({
  * Properties not in 'alwaysVisible' or 'required' are hidden behind a "Show more" toggle.
  */
 export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []): CustomRenderer<Node> => ({
-  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless: boolean = false) => {
     // Fallback for primitives (e.g. "static" endpoint which is a string, not an object)
     if (node.type !== "object") {
       const name = getName(dataPath);
@@ -541,6 +687,26 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
         }
       });
     }
+
+    const name = getName(dataPath);
+    
+    const selectedIndex = getOneOfSelection(node, node.defaultValue);
+    let oneOfContent: Node | undefined;
+    if (selectedIndex !== -1 && node.oneOf) {
+      const selectedNode = node.oneOf[selectedIndex];
+      const defaults = generateDefaultData(selectedNode);
+      let effectiveData = node.defaultValue;
+      if (typeof defaults === 'object' && defaults !== null) {
+          effectiveData = { ...defaults };
+          if (node.defaultValue && typeof node.defaultValue === 'object') {
+               Object.assign(effectiveData, node.defaultValue);
+          }
+      }
+      const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+      oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
+    }
+
+    const oneOf = domRenderer.renderOneOf(node, elementId, name, selectedIndex, oneOfContent);
 
     const visibleContent = renderProperties(
       context,
@@ -583,6 +749,17 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
       );
     }
 
+    if (headless) {
+      return h(
+        "div",
+        { className: rendererConfig.classes.headless, id: elementId },
+        oneOf,
+        visibleContent,
+        toggleBtn || "",
+        advancedContent || "",
+      );
+    }
+
     return h(
       "fieldset",
       { className: `${rendererConfig.classes.fieldset} ${rendererConfig.classes.objectWrapper}`, id: elementId },
@@ -590,6 +767,7 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
       node.description
         ? h("div", { className: `${rendererConfig.classes.description}` }, node.description)
         : "",
+      oneOf,
       visibleContent,
       toggleBtn || "",
       advancedContent || "",
@@ -602,12 +780,12 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
  * @param toggleKey - The key of the boolean property that controls visibility (default: "required").
  */
 export const createOptionalRenderer = (toggleKey: string = "required"): CustomRenderer<Node> => ({
-  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext) => {
+  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless: boolean = false) => {
     const toggleProp = node.properties?.[toggleKey];
 
     // Fallback to standard object rendering if toggle property is missing
     if (!toggleProp) {
-      return renderObject(context, node, elementId, false, dataPath);
+      return renderObject(context, node, elementId, headless, dataPath);
     }
 
     const otherProps = { ...node.properties };
@@ -615,6 +793,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
     
     const togglePath = [...dataPath, toggleKey];
     const name = getName(togglePath);
+    const objectName = getName(dataPath);
 
     const toggleId = `${elementId}.${toggleKey}`;
     const optionsId = `${elementId}-options`;
@@ -626,12 +805,48 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
       `data-toggle-target="${optionsId}"`
     );
     
+    const selectedIndex = getOneOfSelection(node, node.defaultValue);
+    let oneOfContent: Node | undefined;
+    if (selectedIndex !== -1 && node.oneOf) {
+      const selectedNode = node.oneOf[selectedIndex];
+      const defaults = generateDefaultData(selectedNode);
+      let effectiveData = node.defaultValue;
+      if (typeof defaults === 'object' && defaults !== null) {
+          effectiveData = { ...defaults };
+          if (node.defaultValue && typeof node.defaultValue === 'object') {
+               Object.assign(effectiveData, node.defaultValue);
+          }
+      }
+      const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+      oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
+    }
+
+    const oneOf = domRenderer.renderOneOf(node, elementId, objectName, selectedIndex, oneOfContent);
+
     const optionsContent = renderProperties(
       context,
       otherProps,
       elementId,
       dataPath,
     );
+
+    if (headless) {
+      return h(
+        "div",
+        { className: rendererConfig.classes.headless, id: elementId },
+        checkbox,
+        h(
+          "div",
+          {
+            id: optionsId,
+            style: "display: none;",
+            className: "mt-3",
+          },
+          oneOf,
+          optionsContent,
+        ),
+      );
+    }
 
     return h(
       "fieldset",
@@ -645,6 +860,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
           style: "display: none;",
           className: "mt-3",
         },
+        oneOf,
         optionsContent,
       ),
     );

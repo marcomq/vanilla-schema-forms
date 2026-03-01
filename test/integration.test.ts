@@ -302,4 +302,70 @@ describe('Integration Tests', () => {
 
     expect(store.get()).toEqual({ valB: "B" });
   });
+
+  it('should handle oneOf with primitive and null variants', async () => {
+    const schema = {
+      "type": "object",
+      "properties": {
+        "variant": {
+          "title": "Variant",
+          "default": "hello",
+          "oneOf": [
+            { "title": "String", "type": "string", "default": "hello" },
+            { "title": "Number", "type": "number", "default": 123 },
+            { "title": "Null", "type": "null" },
+            { "title": "Object", "type": "object", "properties": { "foo": { "type": "string", "default": "bar" } } }
+          ]
+        }
+      }
+    };
+
+    const rootNode = await parseSchema(schema as any);
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
+
+    const selector = document.getElementById('root.variant__selector') as HTMLSelectElement;
+    expect(selector).not.toBeNull();
+
+    // 1. Initial state (String)
+    expect(selector.value).toBe('0');
+    const stringInput = document.getElementById('root.variant.__var_String') as HTMLInputElement;
+    expect(stringInput).not.toBeNull();
+    expect(stringInput.value).toBe('hello');
+    const initialData = generateDefaultData(rootNode);
+    store.reset(initialData);
+    expect(store.get()).toEqual({ variant: "hello" });
+
+    // 2. Switch to Number
+    selector.value = '1';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+    const numberInput = document.getElementById('root.variant.__var_Number') as HTMLInputElement;
+    expect(numberInput).not.toBeNull();
+    expect(numberInput.type).toBe('number');
+    expect(numberInput.value).toBe('123');
+    expect(store.get()).toEqual({ variant: 123 });
+
+    // 3. Switch to Null
+    selector.value = '2';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+    const nullDiv = container.querySelector('.ui_null');
+    expect(nullDiv).not.toBeNull();
+    expect(nullDiv!.textContent).toBe('null');
+    expect(store.get()).toEqual({ variant: null });
+
+    // 4. Switch to Object
+    selector.value = '3';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+    const objectInput = document.getElementById('root.variant.__var_Object.foo') as HTMLInputElement;
+    expect(objectInput).not.toBeNull();
+    expect(objectInput.value).toBe('bar');
+    expect(store.get()).toEqual({ variant: { foo: 'bar' } });
+  });
 });

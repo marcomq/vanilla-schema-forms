@@ -7,6 +7,7 @@ export const rendererConfig = {
   elements: {
     input: 'input',
     select: 'select',
+    textarea: 'textarea',
     label: 'label',
     fieldset: 'fieldset',
     legend: 'legend',
@@ -147,6 +148,23 @@ export const domRenderer: TemplateRenderer<Node> = {
     const inputEl = h(rendererConfig.elements.input, attrs);
     return domRenderer.renderFieldWrapper(node, elementId, inputEl);
   },
+  renderJson: (node: FormNode, elementId: string, name: string): Node => {
+    const attrs: { [key: string]: any } = {
+      className: rendererConfig.classes.input,
+      id: elementId,
+      name: name,
+      rows: 10,
+      style: 'font-family: monospace;'
+    };
+
+    const initial = node.defaultValue !== undefined ? JSON.stringify(node.defaultValue, null, 2) : undefined;
+
+    if (node.required) attrs.required = true;
+    if (node.readOnly) attrs.disabled = true;
+
+    const inputEl = initial !== undefined ? h(rendererConfig.elements.textarea, attrs, initial) : h(rendererConfig.elements.textarea, attrs);
+    return domRenderer.renderFieldWrapper(node, elementId, inputEl);
+  },
 
   renderFieldsetWrapper: (node: FormNode, elementId: string, content: Node, className: string = ""): Node => {
     const children: Node[] = [
@@ -237,13 +255,11 @@ export const domRenderer: TemplateRenderer<Node> = {
     return domRenderer.renderFieldWrapper(node, elementId, selectEl);
   },
   renderObject: (node: FormNode, elementId: string, content: Node): Node => {
-    if (node.oneOf && node.oneOf.length > 0) {
-      return domRenderer.renderFieldsetWrapper(node, elementId, content, rendererConfig.classes.objectWrapper);
-    }
-
     const children: Node[] = [];
+    const titleId = `${elementId.replace(/\s/g, '_')}-title`;
+
     if (node.title) {
-      children.push(h('h6', { className: 'fw-bold' }, node.title));
+      children.push(h('h6', { className: 'fw-bold', id: titleId }, node.title));
     }
     if (node.description) {
       children.push(h('div', { className: rendererConfig.classes.description }, node.description));
@@ -252,7 +268,15 @@ export const domRenderer: TemplateRenderer<Node> = {
     // Add placeholder for object-level errors
     children.push(h('div', { 'data-validation-for': elementId }));
 
-    return h('div', { className: `${rendererConfig.classes.objectWrapper}`, id: elementId, 'data-element-id': elementId }, ...children);
+    const attrs: { [key: string]: any } = {
+      className: `${rendererConfig.classes.objectWrapper}`,
+      id: elementId,
+      'data-element-id': elementId,
+      role: 'group'
+    };
+    if (node.title) attrs['aria-labelledby'] = titleId;
+
+    return h('div', attrs, ...children);
   },
   renderAdditionalProperties: (node: FormNode, elementId: string, options?: { title?: string | null, keyPattern?: string }): Node => {
     if (!node.additionalProperties) return document.createTextNode('');
@@ -281,48 +305,15 @@ export const domRenderer: TemplateRenderer<Node> = {
       'data-element-id': elementId
     }, ...children);
   },
-  renderOneOf: (node: FormNode, elementId: string, name: string): Node => {
+  renderOneOf: (node: FormNode, elementId: string, name: string, selectedIndex: number = 0, content: Node | undefined = undefined): Node => {
     if (!node.oneOf || node.oneOf.length === 0) return document.createTextNode('');
 
-    let selectedIndex = -1;
-
-    // Attempt to match data to an option
-    if (node.defaultValue !== undefined) {
-      selectedIndex = node.oneOf.findIndex(opt => {
-        if (node.defaultValue === null) {
-           return opt.type === 'null' || (opt.title && opt.title.toLowerCase() === 'null');
-        }
-        if (Array.isArray(node.defaultValue)) {
-            return opt.type === 'array';
-        }
-        if (typeof node.defaultValue === 'object') {
-           if (opt.properties) {
-             const dataKeys = Object.keys(node.defaultValue);
-             const propKeys = Object.keys(opt.properties);
-             // Check for unique property match (common in this schema pattern)
-             if (propKeys.length === 1 && dataKeys.includes(propKeys[0])) return true;
-             // Check if all required properties are present (required can be boolean or string[])
-             if (Array.isArray(opt.required) && opt.required.length > 0 && opt.required.every((req: string) => dataKeys.includes(req))) return true;
-           }
-           return false;
-        }
-        // Primitives
-        if (opt.type === typeof node.defaultValue) return true;
-        if (opt.type === 'integer' && typeof node.defaultValue === 'number') return true;
-        return false;
-      });
+    if (node.oneOf.length === 1) {
+      return content || document.createTextNode('');
     }
 
-    if (selectedIndex === -1) {
-      selectedIndex = node.oneOf.findIndex(opt => opt.type === 'null');
-      if (selectedIndex === -1) {
-        selectedIndex = node.oneOf.findIndex(opt => {
-          const title = (opt.title || '').toLowerCase();
-          return title === 'null' || title === 'none';
-        });
-      }
-      if (selectedIndex === -1) selectedIndex = 0;
-    }
+    // Ensure valid index
+    if (selectedIndex < 0 || selectedIndex >= node.oneOf.length) selectedIndex = 0;
 
     const optionElements = node.oneOf.map((opt, idx) => {
       const attrs: { [key: string]: any } = { value: idx };
@@ -343,10 +334,38 @@ export const domRenderer: TemplateRenderer<Node> = {
       className: rendererConfig.classes.oneOfContainer,
       id: `${elementId}__oneof_content`
     });
+    
+    if (content) {
+      contentContainer.appendChild(content);
+    }
 
     const selectContainer = h(rendererConfig.elements.oneOf, { 'data-element-id': elementId }, selectEl, contentContainer);
     
-    const wrapperNode = { ...node, title: getUiText("type_variant", "Type / Variant"), description: undefined, required: false, _inputId: `${elementId}__selector` };
+    let label = getUiText("type_variant", "Type / Variant");
+
+    if (node.oneOf && node.oneOf.length > 0) {
+      const firstOpt = node.oneOf[0];
+      if (firstOpt.properties) {
+        const keys = Object.keys(firstOpt.properties);
+        for (const key of keys) {
+          const isDiscriminator = node.oneOf.every(opt => 
+            opt.properties && 
+            opt.properties[key] && 
+            opt.properties[key].enum && 
+            opt.properties[key].enum?.length === 1
+          );
+          if (isDiscriminator) {
+            label = firstOpt.properties[key].title || key;
+            if (!firstOpt.properties[key].title) {
+              label = label.charAt(0).toUpperCase() + label.slice(1);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    const wrapperNode = { ...node, title: label, description: undefined, required: false, _inputId: `${elementId}__selector` };
     return domRenderer.renderFieldWrapper(wrapperNode, elementId, selectContainer, rendererConfig.classes.oneOfWrapper);
   },
   renderArray: (node: FormNode, elementId: string, options?: { isFixedSize?: boolean }): Node => {
