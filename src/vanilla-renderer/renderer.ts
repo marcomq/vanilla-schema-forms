@@ -146,6 +146,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
             nodeToRender = hydrateNodeWithData(otherNode, node.defaultValue);
          }
          
+         nodeToRender = { ...nodeToRender };
          nodeToRender.key = node.key;
          nodeToRender.title = node.title;
          nodeToRender.description = node.description;
@@ -184,6 +185,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
             validateAndShowErrors(context);
           } catch (error) {
             target.classList.add('is-invalid');
+            validateAndShowErrors(context);
           }
         });
       }
@@ -317,17 +319,7 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
   let oneOfContent: Node | undefined;
   
   if (selectedIndex !== -1 && node.oneOf) {
-    const selectedNode = node.oneOf[selectedIndex];
-    // Merge defaults to ensure fields like "delete" are visible even if data is empty
-    const defaults = generateDefaultData(selectedNode);
-    let effectiveData = node.defaultValue;
-    if (typeof defaults === 'object' && defaults !== null) {
-        effectiveData = { ...defaults };
-        if (node.defaultValue && typeof node.defaultValue === 'object') {
-             Object.assign(effectiveData, node.defaultValue);
-        }
-    }
-    const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+    const hydrated = prepareOneOfNode(node.oneOf[selectedIndex], node.defaultValue);
     oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
   }
 
@@ -439,6 +431,18 @@ export function renderProperties(context: RenderContext, properties: { [key: str
   );
 
   return domRenderer.renderFragment([groupsHtml, remainingHtml]);
+}
+
+function prepareOneOfNode(selectedNode: FormNode, currentData: any): FormNode {
+  const defaults = generateDefaultData(selectedNode);
+  let effectiveData = currentData;
+  if (typeof defaults === 'object' && defaults !== null) {
+    effectiveData = { ...defaults };
+    if (currentData && typeof currentData === 'object') {
+      Object.assign(effectiveData, currentData);
+    }
+  }
+  return hydrateNodeWithData(selectedNode, effectiveData);
 }
 
 export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
@@ -724,16 +728,7 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
     const selectedIndex = getOneOfSelection(node, node.defaultValue);
     let oneOfContent: Node | undefined;
     if (selectedIndex !== -1 && node.oneOf) {
-      const selectedNode = node.oneOf[selectedIndex];
-      const defaults = generateDefaultData(selectedNode);
-      let effectiveData = node.defaultValue;
-      if (typeof defaults === 'object' && defaults !== null) {
-          effectiveData = { ...defaults };
-          if (node.defaultValue && typeof node.defaultValue === 'object') {
-               Object.assign(effectiveData, node.defaultValue);
-          }
-      }
-      const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+      const hydrated = prepareOneOfNode(node.oneOf[selectedIndex], node.defaultValue);
       oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
     }
 
@@ -839,16 +834,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
     const selectedIndex = getOneOfSelection(node, node.defaultValue);
     let oneOfContent: Node | undefined;
     if (selectedIndex !== -1 && node.oneOf) {
-      const selectedNode = node.oneOf[selectedIndex];
-      const defaults = generateDefaultData(selectedNode);
-      let effectiveData = node.defaultValue;
-      if (typeof defaults === 'object' && defaults !== null) {
-          effectiveData = { ...defaults };
-          if (node.defaultValue && typeof node.defaultValue === 'object') {
-               Object.assign(effectiveData, node.defaultValue);
-          }
-      }
-      const hydrated = hydrateNodeWithData(selectedNode, effectiveData);
+      const hydrated = prepareOneOfNode(node.oneOf[selectedIndex], node.defaultValue);
       oneOfContent = renderNode(context, hydrated, elementId, true, dataPath);
     }
 
