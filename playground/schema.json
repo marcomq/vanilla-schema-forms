@@ -388,57 +388,62 @@
           "type": "string"
         }
       },
-      "oneOf": [
+      "anyOf": [
         {
-          "description": "**Queue Mode**: Reads from the beginning of the file.",
-          "type": "object",
-          "properties": {
-            "delete": {
-              "type": "boolean",
-              "default": false
+          "oneOf": [
+            {
+              "description": "**Queue Mode**: Reads from the beginning of the file.",
+              "type": "object",
+              "properties": {
+                "delete": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "mode": {
+                  "type": "string",
+                  "const": "consume"
+                }
+              },
+              "required": ["mode"]
             },
-            "mode": {
-              "type": "string",
-              "const": "consume"
+            {
+              "description": "**Broadcast Mode**: Tails the file (starts at the end).",
+              "type": "object",
+              "properties": {
+                "delete": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "mode": {
+                  "type": "string",
+                  "const": "subscribe"
+                }
+              },
+              "required": ["mode"]
+            },
+            {
+              "description": "**Persistent Mode**: Reads the file with offset tracking.",
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "description": "The consumer group ID that is used for offset tracking. Should be unique.",
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string",
+                  "const": "group_subscribe"
+                },
+                "read_from_tail": {
+                  "description": "If true, starts reading from the end of the file if no offset is stored.\nIf false, starts reading from the beginning.",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": ["mode", "group_id"]
             }
-          },
-          "required": ["mode"]
+          ]
         },
-        {
-          "description": "**Broadcast Mode**: Tails the file (starts at the end).",
-          "type": "object",
-          "properties": {
-            "delete": {
-              "type": "boolean",
-              "default": false
-            },
-            "mode": {
-              "type": "string",
-              "const": "subscribe"
-            }
-          },
-          "required": ["mode"]
-        },
-        {
-          "description": "**Persistent Mode**: Reads the file with offset tracking.",
-          "type": "object",
-          "properties": {
-            "group_id": {
-              "description": "The consumer group ID that is used for offset tracking. Should be unique.",
-              "type": "string"
-            },
-            "mode": {
-              "type": "string",
-              "const": "group_subscribe"
-            },
-            "read_from_tail": {
-              "description": "If true, starts reading from the end of the file if no offset is stored.\nIf false, starts reading from the beginning.",
-              "type": "boolean",
-              "default": false
-            }
-          },
-          "required": ["mode", "group_id"]
-        }
+        {}
       ],
       "required": ["path"]
     },
