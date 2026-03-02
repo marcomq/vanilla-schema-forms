@@ -141,7 +141,8 @@ export function transformSchemaToFormNode(
       type = Array.isArray(schemaObj.type) ? schemaObj.type[0] : "string";
     }
   } else if (Array.isArray(type)) {
-    type = type[0];
+    const nonNull = type.filter(t => t !== 'null');
+    type = nonNull.length > 0 ? nonNull[0] : type[0];
   }
 
   // Determine the key to use for I18N lookup.
