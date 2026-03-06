@@ -335,8 +335,18 @@ export const domRenderer: TemplateRenderer<Node> = {
       id: `${elementId}__oneof_content`
     });
     
+    const selectedOption = node.oneOf[selectedIndex];
+    if (selectedOption.description) {
+        const descEl = h('div', { className: `${rendererConfig.classes.description}` }, selectedOption.description);
+        contentContainer.appendChild(descEl);
+    }
+
     if (content) {
-      contentContainer.appendChild(content);
+      // Don't render content for simple const/enum-of-one options, as the description is enough.
+      const isSimpleConst = selectedOption.enum && selectedOption.enum.length === 1 && !selectedOption.properties && !selectedOption.items;
+      if (!isSimpleConst) {
+        contentContainer.appendChild(content);
+      }
     }
 
     const selectContainer = h(rendererConfig.elements.oneOf, { 'data-element-id': elementId }, selectEl, contentContainer);

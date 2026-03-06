@@ -131,6 +131,59 @@ export function transformSchemaToFormNode(
     schemaObj = merged as Exclude<JSONSchema, boolean>;
   }
 
+  // Hoist a oneOf from an anyOf if it's a pattern for optionality
+  if (schemaObj.anyOf) {
+    const oneOfSchema = schemaObj.anyOf.find(s => typeof s === 'object' && s.oneOf && Array.isArray((s as any).oneOf));
+    const otherSchemas = schemaObj.anyOf.filter(s => s !== oneOfSchema);
+
+    // This heuristic is for `anyOf: [ { oneOf: [...] }, ... ]` where others make it optional.
+    if (oneOfSchema) {
+      // Only hoist if there are other branches and at least one is an empty object, indicating optionality.
+      const isOptional = otherSchemas.length > 0 && otherSchemas.some(s => typeof s === 'object' && s !== null && Object.keys(s).length === 0);
+      
+      if (isOptional) {
+        const { anyOf, ...restOfSchema } = schemaObj;
+        const { oneOf, ...restOfOneOfSchema } = oneOfSchema as any;
+        
+        const hoistedOneOf = [...oneOf]; // copy
+
+        const hasNoneOption = hoistedOneOf.some(o => {
+          if (typeof o !== 'object' || o === null) return false;
+          if (o.title?.toLowerCase() === 'none') return true;
+          if (o.type === 'null') return true;
+          if (o.const === null) return true;
+          if (Array.isArray(o.enum) && o.enum.length === 1 && o.enum[0] === null) return true;
+          if (o.properties?.null?.type === 'null') return true;
+          return false;
+        });
+
+        if (!hasNoneOption) {
+          hoistedOneOf.push({
+            title: 'None',
+            type: 'object',
+            properties: {},
+          });
+        }
+
+        // Lossless merge of the parent and the oneOf-containing object
+        const mergedProperties = { ...(restOfSchema as any).properties, ...(restOfOneOfSchema as any).properties };
+        const mergedRequired = [...new Set([...((restOfSchema as any).required || []), ...((restOfOneOfSchema as any).required || [])])];
+
+        schemaObj = {
+          ...restOfSchema,
+          ...restOfOneOfSchema,
+          oneOf: hoistedOneOf,
+          properties: mergedProperties,
+        };
+        if (mergedRequired.length > 0) {
+          (schemaObj as any).required = mergedRequired;
+        } else {
+          delete (schemaObj as any).required;
+        }
+      }
+    }
+  }
+
   // Base case and type checking
   let type = schemaObj.type;
   if (!type) {
@@ -141,7 +194,8 @@ export function transformSchemaToFormNode(
       type = Array.isArray(schemaObj.type) ? schemaObj.type[0] : "string";
     }
   } else if (Array.isArray(type)) {
-    type = type[0];
+    const nonNull = type.filter(t => t !== 'null');
+    type = nonNull.length > 0 ? nonNull[0] : type[0];
   }
 
   // Determine the key to use for I18N lookup.
@@ -284,10 +338,15 @@ function inferTitle(schema: JSONSchema, index: number): string {
   const schemaObj = schema as Exclude<JSONSchema, boolean>;
 
   if (schemaObj.title) return schemaObj.title;
+  if (schemaObj.type === 'null') return 'Null';
   
   const directVal = getConstOrEnum(schemaObj);
   if (directVal) return directVal;
   
+  if (schemaObj.default !== undefined && schemaObj.default !== "" && ['string', 'number', 'boolean'].includes(typeof schemaObj.default)) {
+    return String(schemaObj.default);
+  }
+
   // Prioritize common discriminator fields
   const discriminators = ["mode", "type", "kind"];
   if (schemaObj.properties) {
@@ -302,7 +361,15 @@ function inferTitle(schema: JSONSchema, index: number): string {
   // Heuristic: If the object has exactly one property, use that property name as the title.
   if (schemaObj.properties) {
     const keys = Object.keys(schemaObj.properties);
-    if (keys.length === 1) return keys[0];
+    if (keys.length === 1) {
+      const prop = schemaObj.properties[keys[0]] as JSONSchema;
+      const val = getConstOrEnum(prop);
+      if (val) return val;
+      if (typeof prop === "object" && prop.default !== undefined && prop.default !== "" && ['string', 'number', 'boolean'].includes(typeof prop.default)) {
+        return String(prop.default);
+      }
+      return keys[0];
+    }
   }
 
   const candidates = CONFIG.parser.titleCandidates;

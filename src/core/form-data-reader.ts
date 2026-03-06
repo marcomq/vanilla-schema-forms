@@ -47,6 +47,8 @@ export function generateDefaultData(node: FormNode): any {
       if (oneOfDefault !== undefined) {
         if (typeof oneOfDefault === 'object' && oneOfDefault !== null) {
           Object.assign(obj, oneOfDefault);
+        } else {
+          return oneOfDefault;
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "name": "vanilla-schema-forms",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "A JSON schema driven form generator for vanilla JS/TS applications.",
   "type": "module",
   "main": "./dist/vanilla-schema-forms.umd.js",
@@ -57,11 +57,11 @@
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "@types/node": "^25.2.3",
+    "@types/node": "^25.3.3",
     "concurrently": "^9.2.1",
-    "happy-dom": "^20.6.1",
+    "happy-dom": "^20.7.0",
     "json-schema-to-ts": "^3.1.1",
-    "nodemon": "^3.1.0",
+    "nodemon": "^3.1.14",
     "svelte": "^5.51.2",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
