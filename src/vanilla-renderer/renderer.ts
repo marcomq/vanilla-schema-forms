@@ -259,14 +259,19 @@ function getOneOfSelection(node: FormNode, data: any): number {
         if (typeof data === 'object') {
            if (opt.properties) {
              const dataKeys = Object.keys(data);
+             let hasDiscriminator = false;
              
              // Check for explicit discriminator match in data
              for (const key in opt.properties) {
                const prop = opt.properties[key];
                if (prop.enum && prop.enum.length === 1) {
+                 hasDiscriminator = true;
                  if (data[key] === prop.enum[0]) return true;
                }
              }
+
+             // If a discriminator was present but didn't match, this option is not a match.
+             if (hasDiscriminator) return false;
 
              // Filter out properties that are likely discriminators or hidden
              const meaningfulProps = Object.keys(opt.properties).filter(key => {
@@ -283,8 +288,13 @@ function getOneOfSelection(node: FormNode, data: any): number {
            }
            return false;
         }
-        if (opt.type === typeof data) return true;
-        if (opt.type === 'integer' && typeof data === 'number') return true;
+        // For primitives, check if the option is a const/enum that matches the data
+        if (opt.enum && opt.enum.length > 0 && opt.enum.includes(data)) {
+          return true;
+        }
+        // Fallback for oneOf of types, e.g. string | number.
+        if (opt.type === typeof data && !opt.enum) return true;
+        if (opt.type === 'integer' && typeof data === 'number' && !opt.enum) return true;
         return false;
     });
   }
@@ -449,6 +459,18 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   if (data === undefined) return node;
   
   const newNode = { ...node };
+
+  // Handle case where node is an "enum-like" oneOf but data is a primitive.
+  // This allows hydrating a oneOf-based select with a simple string/number value.
+  if (newNode.oneOf && !newNode.properties && (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean')) {
+    const isEnumLike = newNode.oneOf.every(opt => (opt.enum && opt.enum.length === 1) || opt.type === 'null');
+    if (isEnumLike) {
+      newNode.defaultValue = data;
+      // Don't recurse further, as the data is the value for the whole node.
+      // The correct oneOf option will be selected during rendering based on this new defaultValue.
+      return newNode;
+    }
+  }
 
   if (newNode.type === 'object' && typeof data === 'object' && data !== null) {
     newNode.defaultValue = data;

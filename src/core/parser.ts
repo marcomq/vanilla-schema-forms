@@ -163,7 +163,7 @@ export function transformSchemaToFormNode(
         }
 
         // Merge properties from the object containing the oneOf
-        schemaObj = { ...restOfSchema, ...restOfOneOfSchema, oneOf: hoistedOneOf };
+        schemaObj = { ...restOfSchema, oneOf: hoistedOneOf };
       }
     }
   }

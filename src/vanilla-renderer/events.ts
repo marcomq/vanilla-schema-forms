@@ -246,8 +246,21 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     // Hydrate selectedNode with the effective data
     selectedNode = hydrateNodeWithData(selectedNode, newData);
 
-    contentContainer.innerHTML = '';
-    contentContainer.appendChild(renderNode(context, selectedNode, path, true, parentDataPath));
+    contentContainer.innerHTML = ''; // Clear existing content
+
+    // Add description of the selected option
+    if (rawNode.description) {
+      const descEl = h('div', { className: rendererConfig.classes.description }, rawNode.description);
+      contentContainer.appendChild(descEl);
+    }
+
+    // Render content for the selected option, unless it's a simple const.
+    // This mirrors the logic in `dom-renderer.renderOneOf` to prevent redundant fields.
+    const isSimpleConst = rawNode.enum && rawNode.enum.length === 1 && !rawNode.properties && !rawNode.items;
+    if (!isSimpleConst) {
+      const newContent = renderNode(context, selectedNode, path, true, parentDataPath);
+      contentContainer.appendChild(newContent);
+    }
 
     if (storePath) {
       context.store.setPath(storePath, newData);
