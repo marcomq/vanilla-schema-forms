@@ -136,9 +136,10 @@ export function transformSchemaToFormNode(
     const oneOfSchema = schemaObj.anyOf.find(s => typeof s === 'object' && s.oneOf && Array.isArray((s as any).oneOf));
     const otherSchemas = schemaObj.anyOf.filter(s => s !== oneOfSchema);
 
-    // This heuristic is for `anyOf: [ { oneOf: [...] }, ... ]` where others make it optional
+    // This heuristic is for `anyOf: [ { oneOf: [...] }, ... ]` where others make it optional.
     if (oneOfSchema) {
-      const isOptional = otherSchemas.some(s => typeof s === 'object' && s !== null && Object.keys(s).length === 0);
+      // Only hoist if all other branches are empty objects, indicating they are just for optionality.
+      const isOptional = otherSchemas.every(s => typeof s === 'object' && s !== null && Object.keys(s).length === 0);
       
       if (isOptional) {
         const { anyOf, ...restOfSchema } = schemaObj;
@@ -147,23 +148,38 @@ export function transformSchemaToFormNode(
         const hoistedOneOf = [...oneOf]; // copy
 
         const hasNoneOption = hoistedOneOf.some(o => {
-          if (typeof o !== 'object') return false;
+          if (typeof o !== 'object' || o === null) return false;
           if (o.title?.toLowerCase() === 'none') return true;
           if (o.type === 'null') return true;
+          if (o.const === null) return true;
+          if (Array.isArray(o.enum) && o.enum.includes(null)) return true;
           if (o.properties?.null?.type === 'null') return true;
           return false;
         });
 
         if (!hasNoneOption) {
           hoistedOneOf.push({
-            title: "None",
-            type: "object",
-            properties: {}
+            title: 'None',
+            type: 'object',
+            properties: {},
           });
         }
 
-        // Merge properties from the object containing the oneOf
-        schemaObj = { ...restOfSchema, ...restOfOneOfSchema, oneOf: hoistedOneOf };
+        // Lossless merge of the parent and the oneOf-containing object
+        const mergedProperties = { ...(restOfSchema as any).properties, ...(restOfOneOfSchema as any).properties };
+        const mergedRequired = [...new Set([...((restOfSchema as any).required || []), ...((restOfOneOfSchema as any).required || [])])];
+
+        schemaObj = {
+          ...restOfSchema,
+          ...restOfOneOfSchema,
+          oneOf: hoistedOneOf,
+          properties: mergedProperties,
+        };
+        if (mergedRequired.length > 0) {
+          (schemaObj as any).required = mergedRequired;
+        } else {
+          delete (schemaObj as any).required;
+        }
       }
     }
   }
