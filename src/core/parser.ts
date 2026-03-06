@@ -138,8 +138,8 @@ export function transformSchemaToFormNode(
 
     // This heuristic is for `anyOf: [ { oneOf: [...] }, ... ]` where others make it optional.
     if (oneOfSchema) {
-      // Only hoist if all other branches are empty objects, indicating they are just for optionality.
-      const isOptional = otherSchemas.every(s => typeof s === 'object' && s !== null && Object.keys(s).length === 0);
+      // Only hoist if there are other branches and at least one is an empty object, indicating optionality.
+      const isOptional = otherSchemas.length > 0 && otherSchemas.some(s => typeof s === 'object' && s !== null && Object.keys(s).length === 0);
       
       if (isOptional) {
         const { anyOf, ...restOfSchema } = schemaObj;
@@ -152,7 +152,7 @@ export function transformSchemaToFormNode(
           if (o.title?.toLowerCase() === 'none') return true;
           if (o.type === 'null') return true;
           if (o.const === null) return true;
-          if (Array.isArray(o.enum) && o.enum.includes(null)) return true;
+          if (Array.isArray(o.enum) && o.enum.length === 1 && o.enum[0] === null) return true;
           if (o.properties?.null?.type === 'null') return true;
           return false;
         });
@@ -343,7 +343,7 @@ function inferTitle(schema: JSONSchema, index: number): string {
   const directVal = getConstOrEnum(schemaObj);
   if (directVal) return directVal;
   
-  if (schemaObj.default !== undefined && ['string', 'number', 'boolean'].includes(typeof schemaObj.default)) {
+  if (schemaObj.default !== undefined && schemaObj.default !== "" && ['string', 'number', 'boolean'].includes(typeof schemaObj.default)) {
     return String(schemaObj.default);
   }
 
@@ -365,7 +365,7 @@ function inferTitle(schema: JSONSchema, index: number): string {
       const prop = schemaObj.properties[keys[0]] as JSONSchema;
       const val = getConstOrEnum(prop);
       if (val) return val;
-      if (typeof prop === "object" && prop.default !== undefined && ['string', 'number', 'boolean'].includes(typeof prop.default)) {
+      if (typeof prop === "object" && prop.default !== undefined && prop.default !== "" && ['string', 'number', 'boolean'].includes(typeof prop.default)) {
         return String(prop.default);
       }
       return keys[0];
