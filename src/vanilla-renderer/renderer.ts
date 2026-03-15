@@ -846,8 +846,12 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
     const toggleId = `${elementId}.${toggleKey}`;
     const optionsId = `${elementId}-options`;
     
+    context.elementIdToDataPath.set(toggleId, togglePath);
+    const currentValue = context.store.getPath(togglePath);
+    const checkboxNode = hydrateNodeWithData(toggleProp, currentValue);
+
     const checkbox = domRenderer.renderBoolean(
-      toggleProp,
+      checkboxNode,
       toggleId,
       name,
       `data-toggle-target="${optionsId}"`
@@ -869,6 +873,8 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
       dataPath,
     );
 
+    const isVisible = !!checkboxNode.defaultValue;
+
     if (headless) {
       return h(
         "div",
@@ -878,7 +884,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
           "div",
           {
             id: optionsId,
-            style: "display: none;",
+            style: `display: ${isVisible ? "block" : "none"};`,
             className: "mt-3",
           },
           oneOf,
@@ -896,7 +902,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
         "div",
         {
           id: optionsId,
-          style: "display: none;",
+          style: `display: ${isVisible ? "block" : "none"};`,
           className: "mt-3",
         },
         oneOf,
