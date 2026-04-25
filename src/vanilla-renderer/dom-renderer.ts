@@ -55,6 +55,7 @@ export const rendererConfig = {
     checkboxLabel: 'form-check-label',
     buttonPrimary: 'btn btn-sm btn-outline-primary mt-2',
     buttonSecondary: 'btn btn-sm btn-outline-secondary mt-2',
+    buttonLink: 'btn btn-sm btn-link p-0 text-decoration-none mt-2',
     buttonDanger: 'btn btn-sm btn-outline-danger',
     textDanger: 'text-danger',
     textMuted: 'text-muted fst-italic',
@@ -83,7 +84,9 @@ export const rendererConfig = {
     compactLabel: 'col-sm-3 col-form-label small',
     compactContent: 'col-sm-9',
     compactDescriptionWrapper: 'small text-muted',
-    compactErrorPlaceholder: 'col-12'
+    compactErrorPlaceholder: 'col-12',
+    disclosureContent: '',
+    sectionSpacing: 'mt-3'
   }
 };
 

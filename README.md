@@ -92,6 +92,33 @@ In addition to standard JSON Schema formats (email, date-time, etc.), the valida
 
 Vanilla Schema Forms allows extensive customization through configuration and custom renderers.
 
+### Web Awesome Helper
+
+If you want a Web Awesome-based variant of the vanilla renderer, you can layer the helper on top of the existing DOM renderer instead of rewriting everything from scratch.
+
+```typescript
+import {
+  applyWebAwesomeTheme,
+  createAdvancedOptionsRenderer,
+  createOptionalRenderer,
+  createTypeSelectArrayRenderer,
+  setCustomRenderers
+} from "vanilla-schema-forms";
+
+applyWebAwesomeTheme();
+
+setCustomRenderers({
+  connection: createAdvancedOptionsRenderer(["protocol", "host", "port"]),
+  tls: createOptionalRenderer("enabled"),
+  middlewares: createTypeSelectArrayRenderer({
+    buttonLabel: "Add Middleware",
+    itemLabel: "Middleware"
+  })
+});
+```
+
+See `examples/vanilla-web-awesome/` for a complete working example that uses the official Web Awesome CDN assets.
+
 ### Global Configuration
 
 You can configure global behavior like sorting and visibility using `setConfig`.

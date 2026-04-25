@@ -27,6 +27,10 @@ export { domRenderer, rendererConfig, renderCompactFieldWrapper };
 export { validateAndShowErrors, resolvePath };
 export { parseSchema } from "./core/parser";
 export { Store } from "./core/state";
+export {
+  applyWebAwesomeTheme,
+  formatWebAwesomeLabel,
+} from "./web-awesome/helpers";
 export type { FormNode } from "./core/parser";
 export type { ErrorObject } from "./core/types";
 

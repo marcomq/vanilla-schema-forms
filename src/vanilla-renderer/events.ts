@@ -547,8 +547,10 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
   if (node && container) {
     const index = container.children.length;
     const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: 'Value' } as FormNode;
-    // Title is intentionally cleared for AP values to avoid clutter.
-    const valueNode = { ...valueSchema, title: '', key: undefined };
+    const showValueLabel =
+      ['string', 'number', 'integer', 'boolean', 'json'].includes(valueSchema.type) ||
+      !!valueSchema.enum;
+    const valueNode = { ...valueSchema, title: showValueLabel ? 'Value' : '', key: undefined };
     // APs are tricky for data path mapping because key is dynamic. 
     
     const apId = `${elementId}.__ap_${index}`;

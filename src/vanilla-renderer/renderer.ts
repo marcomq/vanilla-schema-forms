@@ -376,8 +376,8 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
 
         const valueSchema = typeof node.additionalProperties === 'object' ? node.additionalProperties : { type: 'string', title: '' } as FormNode;
         const valueNode = hydrateNodeWithData(valueSchema, node.defaultValue[key]);
-        // Title is intentionally cleared for AP values to avoid clutter.
-        valueNode.title = '';
+        // Primitive AP values should get a stable "Value" label instead of falling back to "Untitled".
+        valueNode.title = shouldShowAdditionalPropertyValueLabel(valueNode) ? 'Value' : '';
         valueNode.key = key;   // Use key for segment generation
 
         const apDataPath = [...dataPath, key];
@@ -468,6 +468,10 @@ export function renderProperties(context: RenderContext, properties: { [key: str
   );
 
   return domRenderer.renderFragment([groupsHtml, remainingHtml]);
+}
+
+function shouldShowAdditionalPropertyValueLabel(node: FormNode): boolean {
+  return ['string', 'number', 'integer', 'boolean', 'json'].includes(node.type) || !!node.enum;
 }
 
 function prepareOneOfNode(selectedNode: FormNode, currentData: any): FormNode {
@@ -628,7 +632,7 @@ function renderDisclosureSection(
       "button",
       {
         type: "button",
-        className: `btn btn-sm btn-link p-0 text-decoration-none mt-2 ${rendererConfig.triggers.disclosureToggle}`,
+        className: `${rendererConfig.classes.buttonLink} ${rendererConfig.triggers.disclosureToggle}`,
         "data-disclosure-target": options.contentId,
         "data-disclosure-key": options.disclosureKey,
         "data-label-expand": expandLabel,
@@ -641,7 +645,7 @@ function renderDisclosureSection(
       "div",
       {
         id: options.contentId,
-        className: `${rendererConfig.triggers.disclosureContent} ${options.className || ""}`.trim(),
+        className: `${rendererConfig.classes.disclosureContent} ${rendererConfig.triggers.disclosureContent} ${options.className || ""}`.trim(),
         style: `display: ${expanded ? "block" : "none"};`,
       },
       content,
@@ -929,7 +933,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
           {
             id: optionsId,
             style: `display: ${isVisible ? "block" : "none"};`,
-            className: "mt-3",
+            className: rendererConfig.classes.sectionSpacing,
           },
           oneOf,
           optionsContent,
@@ -947,7 +951,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
         {
           id: optionsId,
           style: `display: ${isVisible ? "block" : "none"};`,
-          className: "mt-3",
+          className: rendererConfig.classes.sectionSpacing,
         },
         oneOf,
         optionsContent,

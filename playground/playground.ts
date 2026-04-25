@@ -19,12 +19,16 @@ import {
   createTypeSelectArrayRenderer,
   createAdvancedOptionsRenderer,
   createOptionalRenderer,
+  applyWebAwesomeTheme,
+  formatWebAwesomeLabel,
   hydrateNodeWithData,
   rendererConfig
 } from '../src/index';
 import complexSchema from './schema.json';
 // @ts-ignore
 import complexCustomization from './customization.js?raw'; // ?raw supported by vite
+// @ts-ignore
+import webAwesomeCustomization from './web-awesome-custom.js?raw';
 // Svelte is just required for the svelte example
 // @ts-ignore 
 import RangeWidget from './RangeWidget.svelte';
@@ -170,6 +174,22 @@ setCustomRenderers({
         }
       }
     }
+  },
+  complexWebAwesome: {
+    schema: complexSchema,
+    config: webAwesomeCustomization,
+    data: {
+      "Default Route": {
+        "input": {
+          "middlewares": [],
+          "null": null
+        },
+        "output": {
+          "middlewares": [],
+          "null": null
+        }
+      }
+    }
   }
 };
 
@@ -188,6 +208,10 @@ const els = {
 
 // Store the original renderer functions to reset monkey-patching
 const originalRenderFieldWrapper = domRenderer.renderFieldWrapper;
+const originalRenderObject = domRenderer.renderObject;
+const originalRenderArrayItem = domRenderer.renderArrayItem;
+const originalRenderAdditionalPropertyRow = domRenderer.renderAdditionalPropertyRow;
+const originalRendererClasses = { ...rendererConfig.classes };
 
 /**
  * Resets all global library state that might be modified by a config script.
@@ -198,6 +222,10 @@ function resetAll() {
   resetI18n();
   resetCustomRenderers();
   domRenderer.renderFieldWrapper = originalRenderFieldWrapper;
+  domRenderer.renderObject = originalRenderObject;
+  domRenderer.renderArrayItem = originalRenderArrayItem;
+  domRenderer.renderAdditionalPropertyRow = originalRenderAdditionalPropertyRow;
+  Object.assign(rendererConfig.classes, originalRendererClasses);
 }
 
 // --- Logic ---
@@ -255,6 +283,8 @@ async function render() {
         "createTypeSelectArrayRenderer",
         "createAdvancedOptionsRenderer",
         "createOptionalRenderer",
+        "applyWebAwesomeTheme",
+        "formatWebAwesomeLabel",
         "hydrateNodeWithData",
         "rendererConfig",
         code,
@@ -279,6 +309,8 @@ async function render() {
         createTypeSelectArrayRenderer,
         createAdvancedOptionsRenderer,
         createOptionalRenderer,
+        applyWebAwesomeTheme,
+        formatWebAwesomeLabel,
         hydrateNodeWithData,
         rendererConfig
       );
@@ -332,7 +364,8 @@ const optionMap: Record<string, string> = {
   simple2: "Simple Object, compact layout",
   svelte: "Svelte Renderers",
   arrays: "Arrays",
-  complex: "Complex"
+  complex: "Complex",
+  complexWebAwesome: "Complex, Web Awesome"
 };
 els.selector.innerHTML = '';
 Object.keys(EXAMPLES).forEach(key => {
