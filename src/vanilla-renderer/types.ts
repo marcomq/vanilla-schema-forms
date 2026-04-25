@@ -32,6 +32,11 @@ export interface RenderContext {
   elementIdToDataPath: Map<string, (string | number)[]>;
   customRenderers: Record<string, CustomRenderer<any>>;
   rootNode: FormNode;
+  uiState?: {
+    disclosures: Map<string, boolean>;
+    oneOfBranches: Map<string, Map<number, any>>;
+    oneOfSelection: Map<string, number>;
+  };
 }
 
 export interface CustomRenderer<T = Node> {

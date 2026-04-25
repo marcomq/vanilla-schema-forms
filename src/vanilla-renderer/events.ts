@@ -1,7 +1,7 @@
 import { RenderContext } from "./types";
 import { ErrorObject } from "../core/types";
 import { FormNode } from "../core/parser";
-import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey } from "./renderer";
+import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey, getOneOfSelection, renderTypeSelectArrayItem } from "./renderer";
 import { generateDefaultData } from "../core/form-data-reader";
 import { validateData } from "../core/validator";
 import { domRenderer } from "./dom-renderer";
@@ -13,55 +13,200 @@ export function attachInteractivity(context: RenderContext, container: HTMLEleme
   setupStoreIntegration(context, container);
   setupOneOfHandlers(context, container);
   setupActionHandlers(context, container);
+  setupDisclosureHandlers(context, container);
+  setupArrayTypePickerHandlers(context, container);
+  initializeInteractiveSubtree(context, container);
+}
+
+function getUiState(context: RenderContext) {
+  if (!context.uiState) {
+    context.uiState = {
+      disclosures: new Map(),
+      oneOfBranches: new Map(),
+      oneOfSelection: new Map(),
+    };
+  }
+  return context.uiState;
 }
 
 function setupVisibilityHandlers(container: HTMLElement) {
   container.addEventListener('change', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.hasAttribute('data-toggle-target')) {
-      const targetId = target.getAttribute('data-toggle-target');
-      const el = document.getElementById(targetId!);
-      if (el) {
-        // Checkbox or Radio
-        const input = target as HTMLInputElement;
-        const isChecked = input.checked;
-        el.style.display = isChecked ? 'block' : 'none';
-      }
-    }
+    const target = e.target as HTMLElement | null;
+    const toggle = target?.closest('[data-toggle-target]') as HTMLInputElement | null;
+    if (!toggle) return;
+    syncToggleVisibility(toggle);
   });
-
-  // Initialize toggles
-  container.querySelectorAll('[data-toggle-target]').forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
 }
 
 function setupStoreIntegration(context: RenderContext, container: HTMLElement) {
-  // Initialize data-original-key for AP keys to track renames
+  container.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    syncStoreValue(context, target, false);
+  });
+
+  container.addEventListener('change', (e) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    if (!syncStoreValue(context, target, true)) return;
+    validateAndShowErrors(context);
+  });
+}
+
+function syncStoreValue(context: RenderContext, target: HTMLInputElement | HTMLSelectElement, shouldValidate: boolean): boolean {
+  if (!target?.id) return false;
+
+  if (target.id.endsWith('__selector')) return false;
+  if (target.classList.contains(rendererConfig.triggers.arrayTypeSelect)) return false;
+
+  const node = context.nodeRegistry.get(target.id);
+  if (node && node.type === 'json') return false;
+
+  if (target.classList.contains(rendererConfig.triggers.additionalPropertyKey)) {
+    handleApKeyRename(context, target as HTMLInputElement);
+    return shouldValidate;
+  }
+
+  handleValueUpdate(context, target);
+  return shouldValidate;
+}
+
+function syncToggleVisibility(toggle: HTMLInputElement) {
+  const targetId = toggle.getAttribute('data-toggle-target');
+  if (!targetId) return;
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.style.display = toggle.checked ? 'block' : 'none';
+}
+
+function initializeInteractiveSubtree(context: RenderContext, container: ParentNode) {
   container.querySelectorAll(`.${rendererConfig.triggers.additionalPropertyKey}`).forEach(el => {
     const input = el as HTMLInputElement;
     input.setAttribute('data-original-key', input.value);
   });
 
-  container.addEventListener('input', (e) => {
-    const target = e.target as HTMLInputElement | HTMLSelectElement;
-    if (!target.id) return;
-
-    // Ignore internal selector inputs (handled by change listener for UI, not data)
-    if (target.id.endsWith('__selector')) return;
-
-    // Ignore JSON inputs (handled by specific change listener in renderer.ts)
-    const node = context.nodeRegistry.get(target.id);
-    if (node && node.type === 'json') return;
-
-    // Handle AP Key Rename
-    if (target.classList.contains(rendererConfig.triggers.additionalPropertyKey)) {
-      handleApKeyRename(context, target as HTMLInputElement);
-    } else {
-      // Handle Value Update
-      handleValueUpdate(context, target);
-    }
-    
-    validateAndShowErrors(context);
+  container.querySelectorAll('[data-toggle-target]').forEach(el => {
+    syncToggleVisibility(el as HTMLInputElement);
   });
+
+  container.querySelectorAll(`.${rendererConfig.triggers.disclosureToggle}`).forEach(el => {
+    syncDisclosureState(context, el as HTMLButtonElement);
+  });
+}
+
+function setupDisclosureHandlers(context: RenderContext, container: HTMLElement) {
+  container.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    const button = target?.closest(`.${rendererConfig.triggers.disclosureToggle}`) as HTMLButtonElement | null;
+    if (!button) return;
+
+    const key = button.getAttribute('data-disclosure-key');
+    const nextExpanded = button.getAttribute('aria-expanded') !== 'true';
+    if (key) {
+      getUiState(context).disclosures.set(key, nextExpanded);
+    }
+    syncDisclosureState(context, button, nextExpanded);
+  });
+}
+
+function syncDisclosureState(context: RenderContext, button: HTMLButtonElement, forcedState?: boolean) {
+  const contentId = button.getAttribute('data-disclosure-target');
+  if (!contentId) return;
+  const content = document.getElementById(contentId);
+  if (!content) return;
+
+  const key = button.getAttribute('data-disclosure-key');
+  const expanded = forcedState ?? (key ? getUiState(context).disclosures.get(key) : undefined) ?? button.getAttribute('aria-expanded') === 'true';
+  const expandLabel = button.getAttribute('data-label-expand') || 'Show more';
+  const collapseLabel = button.getAttribute('data-label-collapse') || 'Hide';
+
+  button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  button.textContent = expanded ? collapseLabel : expandLabel;
+  content.style.display = expanded ? 'block' : 'none';
+}
+
+function setupArrayTypePickerHandlers(context: RenderContext, container: HTMLElement) {
+  container.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    const button = target?.closest(`.${rendererConfig.triggers.arrayTypeToggle}`) as HTMLButtonElement | null;
+    if (!button) return;
+
+    const selectId = button.getAttribute('data-select-id');
+    if (!selectId) return;
+    const select = document.getElementById(selectId) as HTMLSelectElement | null;
+    if (!select) return;
+
+    button.style.display = 'none';
+    select.style.display = 'inline-block';
+    select.focus();
+    if ((select as any).showPicker) (select as any).showPicker();
+  });
+
+  container.addEventListener('change', (e) => {
+    const select = e.target as HTMLSelectElement;
+    if (!select.classList.contains(rendererConfig.triggers.arrayTypeSelect)) return;
+    handleTypedArrayAdd(context, select);
+  });
+
+  container.addEventListener('focusout', (e) => {
+    const select = e.target as HTMLSelectElement;
+    if (!select.classList.contains(rendererConfig.triggers.arrayTypeSelect)) return;
+    window.setTimeout(() => resetArrayTypePicker(select), 0);
+  });
+}
+
+function resetArrayTypePicker(select: HTMLSelectElement) {
+  select.value = "";
+  select.style.display = "none";
+  const button = select.parentElement?.querySelector(`.${rendererConfig.triggers.arrayTypeToggle}`) as HTMLButtonElement | null;
+  if (button) {
+    button.style.display = "inline-block";
+  }
+}
+
+function handleTypedArrayAdd(context: RenderContext, select: HTMLSelectElement) {
+  const elementId = select.getAttribute('data-id');
+  const targetContainerId = select.getAttribute('data-target');
+  const itemLabel = select.getAttribute('data-item-label') || 'Item';
+  const selectedIndex = parseInt(select.value, 10);
+  if (!elementId || !targetContainerId || isNaN(selectedIndex)) {
+    resetArrayTypePicker(select);
+    return;
+  }
+
+  const node = context.nodeRegistry.get(elementId);
+  const container = document.getElementById(targetContainerId);
+  if (!node?.items?.oneOf || !container) {
+    resetArrayTypePicker(select);
+    return;
+  }
+
+  const fullPath = context.elementIdToDataPath.get(elementId);
+  if (!fullPath) {
+    resetArrayTypePicker(select);
+    return;
+  }
+
+  const storePath = fullPath.length > 1 ? fullPath.slice(1) : [];
+  const currentData = context.store.getPath(storePath) || [];
+  const newItemIndex = Array.isArray(currentData) ? currentData.length : 0;
+  const selectedOption = node.items.oneOf[selectedIndex];
+  const newData = generateDefaultData(selectedOption);
+  context.store.setPath([...storePath, newItemIndex], newData);
+
+  container.appendChild(
+    renderTypeSelectArrayItem(
+      context,
+      node,
+      elementId,
+      fullPath,
+      newData,
+      newItemIndex,
+      itemLabel,
+    ),
+  );
+
+  initializeInteractiveSubtree(context, container.lastElementChild || container);
+  resetArrayTypePicker(select);
+  validateAndShowErrors(context);
 }
 
 function handleApKeyRename(context: RenderContext, target: HTMLInputElement) {
@@ -224,11 +369,25 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
       currentData = context.store.getPath(storePath) || {};
     }
 
+    const uiState = getUiState(context);
+    const previousIndex = uiState.oneOfSelection.get(elementId!) ?? getOneOfSelection(node, currentData);
+    if (previousIndex >= 0) {
+      let branchMap = uiState.oneOfBranches.get(elementId!);
+      if (!branchMap) {
+        branchMap = new Map();
+        uiState.oneOfBranches.set(elementId!, branchMap);
+      }
+      branchMap.set(previousIndex, structuredClone(currentData));
+    }
+
     // Calculate new data BEFORE rendering to ensure hydration includes defaults
     const optionData = generateDefaultData(rawNode);
     let newData: any;
+    const cachedBranchData = uiState.oneOfBranches.get(elementId!)?.get(selectedIdx);
 
-    if (typeof optionData === 'object' && optionData !== null && !Array.isArray(optionData)) {
+    if (cachedBranchData !== undefined) {
+      newData = structuredClone(cachedBranchData);
+    } else if (typeof optionData === 'object' && optionData !== null && !Array.isArray(optionData)) {
       newData = {};
       // User Switch: Reset to defaults, preserving only common properties from parent
       if (node.properties && typeof currentData === 'object' && currentData !== null && !Array.isArray(currentData)) {
@@ -265,6 +424,14 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     if (storePath) {
       context.store.setPath(storePath, newData);
     }
+    let branchMap = uiState.oneOfBranches.get(elementId!);
+    if (!branchMap) {
+      branchMap = new Map();
+      uiState.oneOfBranches.set(elementId!, branchMap);
+    }
+    uiState.oneOfSelection.set(elementId!, selectedIdx);
+    branchMap.set(selectedIdx, structuredClone(newData));
+    initializeInteractiveSubtree(context, contentContainer);
     validateAndShowErrors(context);
   }
 }
@@ -332,6 +499,7 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       // Initialize OneOfs in the new item
       const newItem = container.lastElementChild;
       if (newItem) {
+        initializeInteractiveSubtree(context, newItem);
         newItem.querySelectorAll(`.${rendererConfig.triggers.oneOfSelector}`).forEach(el => {
           el.dispatchEvent(new Event('change', { bubbles: true }));
         });
@@ -426,6 +594,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     // Initialize OneOfs in the new row
     const newRow = container.lastElementChild;
     if (newRow) {
+      initializeInteractiveSubtree(context, newRow);
       // Initialize data-original-key for the new key input to support immediate renaming
       const newKeyInput = newRow.querySelector(`.${rendererConfig.triggers.additionalPropertyKey}`) as HTMLInputElement;
       if (newKeyInput) {
@@ -437,6 +606,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     }
     
     container.dispatchEvent(new Event('change', { bubbles: true }));
+    validateAndShowErrors(context);
   }
 }
 
@@ -470,6 +640,7 @@ function handleApRemoveItem(context: RenderContext, target: HTMLElement, contain
     updateAPIndices(context, apContainer as HTMLElement, index, elementId);
   }
   container.dispatchEvent(new Event('change', { bubbles: true }));
+  validateAndShowErrors(context);
 }
 
 export function resolvePath(context: RenderContext, elementId: string): (string | number)[] | null {

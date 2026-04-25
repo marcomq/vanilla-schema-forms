@@ -171,6 +171,11 @@ export async function init(
       dataPathRegistry: new Map(),
       elementIdToDataPath: new Map(),
       customRenderers: { ...DEFAULT_CUSTOM_RENDERERS, ...globalCustomRenderers },
+      uiState: {
+        disclosures: new Map(),
+        oneOfBranches: new Map(),
+        oneOfSelection: new Map(),
+      },
     };
 
     // Render the form
@@ -191,6 +196,8 @@ export async function init(
     const setData = (newData: any) => {
       // To ensure UI consistency (especially for arrays/oneOf), we re-render on programmatic set.
       context.rootNode = hydrateNodeWithData(rootNode, newData);
+      context.uiState?.oneOfBranches.clear();
+      context.uiState?.oneOfSelection.clear();
       renderForm(formContainer, context);
       store.reset(newData);
     }

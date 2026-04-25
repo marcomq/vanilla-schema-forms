@@ -14,6 +14,9 @@ export const DEFAULT_CUSTOM_RENDERERS: Record<string, CustomRenderer<any>> = {};
  * @param formContainer - The HTML element to render the form into.
  */
 export function renderForm(formContainer: HTMLElement, context: RenderContext) {
+  context.nodeRegistry.clear();
+  context.dataPathRegistry.clear();
+  context.elementIdToDataPath.clear();
   const node = renderNode(context, context.rootNode, "", false, []);
   const form = domRenderer.renderFormWrapper(node);
   
@@ -57,6 +60,17 @@ export function getName(dataPath: (string | number)[]): string {
 
 export function toRegistryKey(path: (string | number)[]): string {
   return '/' + path.map(p => String(p).replace(/~/g, '~0').replace(/\//g, '~1')).join('/');
+}
+
+function getUiState(context: RenderContext) {
+  if (!context.uiState) {
+    context.uiState = {
+      disclosures: new Map(),
+      oneOfBranches: new Map(),
+      oneOfSelection: new Map(),
+    };
+  }
+  return context.uiState;
 }
 
 /**
@@ -244,7 +258,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   }
 }
 
-function getOneOfSelection(node: FormNode, data: any): number {
+export function getOneOfSelection(node: FormNode, data: any): number {
   if (!node.oneOf || node.oneOf.length === 0) return -1;
   
   let selectedIndex = -1;
@@ -312,6 +326,18 @@ function getOneOfSelection(node: FormNode, data: any): number {
   return selectedIndex;
 }
 
+function rememberOneOfState(context: RenderContext, elementId: string, selectedIndex: number, data: any) {
+  if (selectedIndex < 0 || data === undefined) return;
+  const uiState = getUiState(context);
+  uiState.oneOfSelection.set(elementId, selectedIndex);
+  let branchMap = uiState.oneOfBranches.get(elementId);
+  if (!branchMap) {
+    branchMap = new Map();
+    uiState.oneOfBranches.set(elementId, branchMap);
+  }
+  branchMap.set(selectedIndex, structuredClone(data));
+}
+
 /**
  * Render an object node with its oneOf, properties and additional properties.
  * @param context - The render context
@@ -326,6 +352,7 @@ export function renderObject(context: RenderContext, node: FormNode, elementId: 
   const name = getName(dataPath);
   
   const selectedIndex = getOneOfSelection(node, node.defaultValue);
+  rememberOneOfState(context, elementId, selectedIndex, node.defaultValue);
   let oneOfContent: Node | undefined;
   
   if (selectedIndex !== -1 && node.oneOf) {
@@ -497,6 +524,131 @@ export function hydrateNodeWithData(node: FormNode, data: any): FormNode {
   return newNode;
 }
 
+export function renderTypeSelectArrayItem(
+  context: RenderContext,
+  node: FormNode,
+  parentElementId: string,
+  dataPath: (string | number)[],
+  itemData: any,
+  index: number,
+  itemLabel: string,
+): Node {
+  let selectedOption = node.items!.oneOf ? node.items!.oneOf![0] : node.items!;
+
+  if (itemData && typeof itemData === "object" && node.items!.oneOf) {
+    const dataKeys = Object.keys(itemData);
+    node.items!.oneOf!.forEach((opt) => {
+      if (opt.properties) {
+        for (const key in opt.properties) {
+          const prop = opt.properties[key];
+          if (prop.enum && prop.enum.length === 1 && itemData[key] === prop.enum[0]) {
+            selectedOption = opt;
+            return;
+          }
+        }
+
+        const meaningfulProps = Object.keys(opt.properties).filter((key) => {
+          const prop = opt.properties![key];
+          return !prop.hidden && !(prop.enum && prop.enum.length === 1);
+        });
+
+        if (meaningfulProps.length === 1 && dataKeys.includes(meaningfulProps[0])) {
+          selectedOption = opt;
+        }
+      }
+    });
+  }
+
+  let itemNodeToRender = selectedOption;
+  let itemPath = `${parentElementId}.${index}`;
+  let itemDataPath = [...dataPath, index];
+
+  if (
+    selectedOption.properties &&
+    Object.keys(selectedOption.properties).length === 1
+  ) {
+    const propName = Object.keys(selectedOption.properties)[0];
+    itemNodeToRender = selectedOption.properties[propName];
+    itemPath = `${itemPath}.${propName}`;
+    itemDataPath = [...itemDataPath, propName];
+
+    if (!itemNodeToRender.title) {
+      itemNodeToRender = {
+        ...itemNodeToRender,
+        title:
+          selectedOption.title ||
+          propName.charAt(0).toUpperCase() + propName.slice(1),
+      };
+    }
+  } else {
+    itemNodeToRender = {
+      ...selectedOption,
+      title: selectedOption.title || `${itemLabel} ${index + 1}`,
+    };
+  }
+
+  const itemEl = renderNode(
+    context,
+    itemNodeToRender,
+    itemPath,
+    false,
+    itemDataPath,
+  );
+  return domRenderer.renderArrayItem(itemEl);
+}
+
+function hasMeaningfulValue(value: any): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.values(value).some(hasMeaningfulValue);
+  return true;
+}
+
+function renderDisclosureSection(
+  context: RenderContext,
+  options: {
+    disclosureKey: string;
+    contentId: string;
+    defaultExpanded?: boolean;
+    expandLabel?: string;
+    collapseLabel?: string;
+    className?: string;
+  },
+  content: Node,
+): { toggle: Node; content: Node } {
+  const uiState = getUiState(context);
+  const expanded = uiState.disclosures.get(options.disclosureKey) ?? !!options.defaultExpanded;
+  uiState.disclosures.set(options.disclosureKey, expanded);
+
+  const expandLabel = options.expandLabel || "Show more";
+  const collapseLabel = options.collapseLabel || "Hide";
+
+  return {
+    toggle: h(
+      "button",
+      {
+        type: "button",
+        className: `btn btn-sm btn-link p-0 text-decoration-none mt-2 ${rendererConfig.triggers.disclosureToggle}`,
+        "data-disclosure-target": options.contentId,
+        "data-disclosure-key": options.disclosureKey,
+        "data-label-expand": expandLabel,
+        "data-label-collapse": collapseLabel,
+        "aria-expanded": expanded ? "true" : "false",
+      },
+      expanded ? collapseLabel : expandLabel,
+    ),
+    content: h(
+      "div",
+      {
+        id: options.contentId,
+        className: `${rendererConfig.triggers.disclosureContent} ${options.className || ""}`.trim(),
+        style: `display: ${expanded ? "block" : "none"};`,
+      },
+      content,
+    ),
+  };
+}
+
 /**
  * Reusable renderer factory for arrays with oneOf items.
  * It renders a select dropdown to choose the item type when adding a new item.
@@ -505,7 +657,7 @@ export const createTypeSelectArrayRenderer = ({
   buttonLabel = "Add Item",
   itemLabel = "Item",
 }: { buttonLabel?: string, itemLabel?: string } = {}): CustomRenderer<Node> => ({
-  render: (node: FormNode, path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless: boolean = false) => {
+  render: (node: FormNode, _path: string, elementId: string, dataPath: (string | number)[], context: RenderContext, headless: boolean = false) => {
     if (!node.items) {
       return domRenderer.renderUnsupported(node);
     }
@@ -515,78 +667,10 @@ export const createTypeSelectArrayRenderer = ({
       id: itemsContainerId,
     });
 
-    // Helper to render a single item
-    const renderItem = (itemData: any, index: number) => {
-      let selectedOption = node.items!.oneOf ? node.items!.oneOf![0] : node.items!;
-
-      if (itemData && typeof itemData === "object" && node.items!.oneOf) {
-        const dataKeys = Object.keys(itemData);
-        node.items!.oneOf!.forEach((opt) => {
-          if (opt.properties) {
-            // Check for explicit discriminator match
-            for (const key in opt.properties) {
-               const prop = opt.properties[key];
-               if (prop.enum && prop.enum.length === 1 && itemData[key] === prop.enum[0]) {
-                 selectedOption = opt;
-                 return;
-               }
-            }
-
-            const meaningfulProps = Object.keys(opt.properties).filter(key => {
-               const prop = opt.properties![key];
-               return !prop.hidden && !(prop.enum && prop.enum.length === 1);
-            });
-
-            if (meaningfulProps.length === 1 && dataKeys.includes(meaningfulProps[0])) {
-               selectedOption = opt;
-            }
-          }
-        });
-      }
-
-      let itemNodeToRender = selectedOption;
-      let itemPath = `${path}.${index}`;
-      let itemDataPath = [...dataPath, index];
-
-      // Unwrap single-property objects to reduce nesting
-      if (
-        selectedOption.properties &&
-        Object.keys(selectedOption.properties).length === 1
-      ) {
-        const propName = Object.keys(selectedOption.properties)[0];
-        itemNodeToRender = selectedOption.properties[propName];
-        itemPath = `${itemPath}.${propName}`;
-        itemDataPath = [...itemDataPath, propName];
-
-        if (!itemNodeToRender.title) {
-          itemNodeToRender = {
-            ...itemNodeToRender,
-            title:
-              selectedOption.title ||
-              propName.charAt(0).toUpperCase() + propName.slice(1),
-          };
-        }
-      } else {
-        itemNodeToRender = {
-          ...selectedOption,
-          title: selectedOption.title || `${itemLabel} ${index + 1}`,
-        };
-      }
-
-      const itemEl = renderNode(
-        context,
-        itemNodeToRender,
-        itemPath,
-        false,
-        itemDataPath,
-      );
-      return domRenderer.renderArrayItem(itemEl);
-    };
-
     // Render existing items
     if (Array.isArray(node.defaultValue)) {
       node.defaultValue.forEach((itemData: any, index: number) => {
-        itemsContainer.appendChild(renderItem(itemData, index));
+        itemsContainer.appendChild(renderTypeSelectArrayItem(context, node, elementId, dataPath, itemData, index, itemLabel));
       });
     }
 
@@ -594,14 +678,9 @@ export const createTypeSelectArrayRenderer = ({
       "button",
       {
         type: "button",
-        className: rendererConfig.classes.buttonPrimary,
-        onclick: (e: any) => {
-          e.currentTarget.style.display = "none";
-          const select = e.currentTarget.nextElementSibling;
-          select.style.display = "inline-block";
-          select.focus();
-          if (select.showPicker) select.showPicker();
-        },
+        className: `${rendererConfig.classes.buttonPrimary} ${rendererConfig.triggers.arrayTypeToggle}`,
+        "data-id": elementId,
+        "data-select-id": `${elementId}__type_picker`,
       },
       buttonLabel,
     );
@@ -652,35 +731,12 @@ export const createTypeSelectArrayRenderer = ({
     const select = h(
       "select",
       {
-        className: rendererConfig.classes.select,
+        className: `${rendererConfig.classes.select} ${rendererConfig.triggers.arrayTypeSelect}`,
+        id: `${elementId}__type_picker`,
         style: "display: none; width: auto; margin-top: 0.5rem;",
-        onchange: (e: any) => {
-          const selectedIndex = parseInt(e.target.value, 10);
-          if (isNaN(selectedIndex)) return;
-          e.target.value = "";
-          e.target.style.display = "none";
-          addBtn.style.display = "inline-block";
-
-          const fullPath = context.elementIdToDataPath.get(elementId);
-          if (!fullPath) return;
-
-          // The store path should not include the root segment.
-          const storePath = fullPath.length > 1 ? fullPath.slice(1) : [];
-
-          const currentData = context.store.getPath(storePath) || [];
-          const newItemIndex = currentData.length;
-          const selectedOption = node.items!.oneOf![selectedIndex];
-          const newData = generateDefaultData(selectedOption);
-          context.store.setPath([...storePath, newItemIndex], newData);
-
-          const wrapper = renderItem(newData, newItemIndex);
-          itemsContainer.appendChild(wrapper);
-        },
-        onblur: (e: any) => {
-          e.target.value = "";
-          e.target.style.display = "none";
-          addBtn.style.display = "inline-block";
-        },
+        "data-id": elementId,
+        "data-target": itemsContainerId,
+        "data-item-label": itemLabel,
       },
       ...options,
     );
@@ -748,6 +804,7 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
     const name = getName(dataPath);
     
     const selectedIndex = getOneOfSelection(node, node.defaultValue);
+    rememberOneOfState(context, elementId, selectedIndex, node.defaultValue);
     let oneOfContent: Node | undefined;
     if (selectedIndex !== -1 && node.oneOf) {
       const hydrated = prepareOneOfNode(node.oneOf[selectedIndex], node.defaultValue);
@@ -768,33 +825,19 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
 
     if (Object.keys(advancedProps).length > 0) {
       const optionsId = `${elementId}-options`;
-      advancedContent = h(
-        "div",
+      const disclosure = renderDisclosureSection(
+        context,
         {
-          id: optionsId,
-          style: "display: none;",
-          className: "",
+          disclosureKey: `${elementId}::advanced`,
+          contentId: optionsId,
+          defaultExpanded: Object.keys(advancedProps).some((key) => hasMeaningfulValue(node.defaultValue?.[key])),
+          expandLabel: "Show advanced fields",
+          collapseLabel: "Hide advanced fields",
         },
         renderProperties(context, advancedProps, elementId, dataPath),
       );
-
-      toggleBtn = h(
-        "button",
-        {
-          type: "button",
-          className: "btn btn-sm btn-link p-0 text-decoration-none mt-2",
-          onclick: (e: any) => {
-            const el = e.currentTarget;
-            const elOptions = document.getElementById(optionsId);
-            if (elOptions) {
-              const isHidden = elOptions.style.display === "none";
-              elOptions.style.display = isHidden ? "block" : "none";
-              el.textContent = isHidden ? "Hide" : "Show more...";
-            }
-          },
-        },
-        "Show more...",
-      );
+      advancedContent = disclosure.content;
+      toggleBtn = disclosure.toggle;
     }
 
     if (headless) {
@@ -858,6 +901,7 @@ export const createOptionalRenderer = (toggleKey: string = "required"): CustomRe
     );
     
     const selectedIndex = getOneOfSelection(node, node.defaultValue);
+    rememberOneOfState(context, elementId, selectedIndex, node.defaultValue);
     let oneOfContent: Node | undefined;
     if (selectedIndex !== -1 && node.oneOf) {
       const hydrated = prepareOneOfNode(node.oneOf[selectedIndex], node.defaultValue);

@@ -22,6 +22,7 @@ import {
 setI18n({
   keys: {
     Map_of_Route: "Routes", // Rename "Map of Route" to "Routes" in the UI
+    type_variant: "Endpoint type",
   },
 });
 
@@ -60,9 +61,18 @@ setConfig({
       "enabled",
       "active",
       "url",
+      "path",
+      "mode",
+      "region",
       "brokers",
+      "queue_url",
+      "endpoint_url",
       "username",
       "password",
+      "token",
+      "basic_auth",
+      "tls",
+      "headers",
       "topic",
       "group",
       "key",
@@ -212,16 +222,23 @@ export const routesRenderer = {
 
 // Advanced Options Renderer (Collapse)
 const advancedOptionsRenderer = createAdvancedOptionsRenderer([
+  "url",
+  "path",
+  "mode",
+  "brokers",
   "queue",
+  "queue_url",
   "group_id",
   "topic",
   "stream",
   "subject",
   "topic_arn",
   "collection",
-  "queue_url",
   "endpoint_url",
   "default",
+  "headers",
+  "basic_auth",
+  "tls",
 ]);
 
 /**
@@ -267,15 +284,20 @@ const endpointTypes = [
   "nats",
   "file",
   "static",
+  "ref",
   "memory",
+  "sled",
   "amqp",
   "mongodb",
   "mqtt",
   "http",
   "ibmmq",
   "zeromq",
+  "grpc",
+  "fanout",
   "switch",
   "response",
+  "reader",
   "custom",
 ];
 endpointTypes.forEach((type) => {

@@ -54,6 +54,33 @@ test.describe('Schema Form Mechanics', () => {
     await expect(topicInput).not.toBeVisible();
   });
 
+  test('OneOf: preserves branch state and disclosure state across endpoint switches', async ({ page }) => {
+    const inputSelector = page.locator('select[id$=".input__selector"]');
+    await expect(inputSelector).toBeVisible();
+
+    await inputSelector.selectOption({ label: 'Mqtt' });
+    const advancedToggle = page.getByRole('button', { name: 'Show advanced fields' }).first();
+    const hadAdvancedToggle = await advancedToggle.isVisible().catch(() => false);
+    if (hadAdvancedToggle) {
+      await advancedToggle.click();
+    }
+
+    const urlInput = page.getByLabel('Url', { exact: false });
+    const topicInput = page.getByLabel('Topic', { exact: false });
+    await urlInput.fill('mqtt://broker.local');
+    await topicInput.fill('orders');
+
+    await inputSelector.selectOption({ label: 'File' });
+    await page.getByLabel('Path', { exact: false }).fill('/tmp/events.log');
+
+    await inputSelector.selectOption({ label: 'Mqtt' });
+    if (hadAdvancedToggle) {
+      await expect(page.getByRole('button', { name: 'Hide advanced fields' }).first()).toBeVisible();
+    }
+    await expect(page.getByLabel('Url', { exact: false })).toHaveValue('mqtt://broker.local');
+    await expect(page.getByLabel('Topic', { exact: false })).toHaveValue('orders');
+  });
+
   test('Arrays: Can add and remove middleware items', async ({ page }) => {
     // Setup: Add route
 

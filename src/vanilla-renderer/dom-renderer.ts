@@ -22,6 +22,8 @@ export const rendererConfig = {
     oneOfSelector: 'js-oneof-selector',
     addArrayItem: 'js-btn-add-array-item',
     removeArrayItem: 'js-btn-remove-item',
+    arrayTypeToggle: 'js-array-type-toggle',
+    arrayTypeSelect: 'js-array-type-select',
     addAdditionalProperty: 'js-btn-add-ap',
     removeAdditionalProperty: 'js-btn-remove-ap',
     additionalPropertyKey: 'js-ap-key',
@@ -31,6 +33,8 @@ export const rendererConfig = {
     arrayItems: 'js-array-items',
     arrayItemRow: 'js-array-item-row',
     arrayItemContent: 'js-array-item-content',
+    disclosureToggle: 'js-disclosure-toggle',
+    disclosureContent: 'js-disclosure-content',
     apKeyContainer: 'js-ap-key-container',
     apValueWrapper: 'js-ap-value-wrapper',
     validationError: 'js-validation-error'
