@@ -94,6 +94,8 @@ dist
 playwright-report
 test-results
 playground/vanilla-schema-forms.umd.js*
+docs/
+.serena
 
 # vuepress v2.x temp and cache directory
 .temp

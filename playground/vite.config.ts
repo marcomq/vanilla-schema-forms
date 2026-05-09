@@ -4,23 +4,32 @@ import { resolve } from 'path';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
+  define: {
+    global: 'globalThis'
+  },
   plugins: [
     svelte(),
     nodePolyfills({
-      include: ['buffer', 'path'],
-      globals: { Buffer: true }
+      include: ['buffer', 'path', 'process', 'util'],
+      protocolImports: true,
+      globals: {
+        Buffer: true,
+        process: true
+      }
     })
   ],
-  root: __dirname, // Since we run vite from the playground folder or with --config
-  base: './', // Ensures assets work on GitHub Pages
+  root: __dirname,
+  base: './',
   resolve: {
     alias: {
-      // Develop against source, not dist
       'vanilla-schema-forms': resolve(__dirname, '../src/index.ts')
     }
   },
   build: {
-    outDir: '../docs', // Output to docs/ for GitHub Pages
-    emptyOutDir: true
+    outDir: '../docs',
+    emptyOutDir: true,
+    commonjsOptions: {
+      transformMixedEsModules: true
+    }
   }
 });

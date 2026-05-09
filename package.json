@@ -1,6 +1,6 @@
 {
   "name": "vanilla-schema-forms",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A JSON schema driven form generator for vanilla JS/TS applications.",
   "type": "module",
   "main": "./dist/vanilla-schema-forms.umd.js",
@@ -31,11 +31,11 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.0"
   },
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^15.2.2"
+    "@apidevtools/json-schema-ref-parser": "^15.3.5"
   },
   "repository": {
     "type": "git",
@@ -55,18 +55,18 @@
   },
   "homepage": "https://github.com/marcomq/vanilla-schema-forms#readme",
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
-    "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "@types/node": "^25.3.3",
+    "@playwright/test": "^1.59.1",
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@types/node": "^25.6.2",
     "concurrently": "^9.2.1",
-    "happy-dom": "^20.7.0",
+    "happy-dom": "^20.9.0",
     "json-schema-to-ts": "^3.1.1",
     "nodemon": "^3.1.14",
-    "svelte": "^5.51.2",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-dts": "^4.5.4",
-    "vite-plugin-node-polyfills": "^0.25.0",
-    "vitest": "^4.0.18"
+    "svelte": "^5.55.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.11",
+    "vite-plugin-dts": "^5.0.0",
+    "vite-plugin-node-polyfills": "^0.26.0",
+    "vitest": "4.1.5"
   }
 }

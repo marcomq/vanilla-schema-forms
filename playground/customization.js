@@ -294,7 +294,6 @@ const endpointTypes = [
   "ibmmq",
   "zeromq",
   "grpc",
-  "fanout",
   "switch",
   "response",
   "reader",
@@ -302,6 +301,14 @@ const endpointTypes = [
 ];
 endpointTypes.forEach((type) => {
   CUSTOM_RENDERERS[type] = advancedOptionsRenderer;
+});
+
+/**
+ * Custom renderer for Fanout (Array of Endpoints).
+ */
+CUSTOM_RENDERERS["fanout"] = createTypeSelectArrayRenderer({
+  buttonLabel: "Add Endpoint",
+  itemLabel: "Endpoint",
 });
 
 // 4. Apply the renderers

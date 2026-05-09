@@ -5,7 +5,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [svelte(), nodePolyfills({
-    include: ['buffer', 'path'],
+    include: ['buffer', 'path', 'process', 'util'],
   })],
   root: 'examples', // Since we run vite from the playground folder or with --config
   base: './', // Ensures assets work on GitHub Pages

@@ -184,27 +184,7 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   // 3. Standard Types
   switch (node.type) {
     case "string": return domRenderer.renderString(node, elementId, name);
-    case "json": {
-      const rendered = domRenderer.renderJson(node, elementId, name);
-      const textarea = (rendered as Element).querySelector('textarea');
-      if (textarea) {
-        textarea.addEventListener('change', (e) => {
-          e.stopPropagation();
-          const target = e.target as HTMLTextAreaElement;
-          try {
-            const val = JSON.parse(target.value);
-            target.classList.remove('is-invalid');
-            const storePath = dataPath.length > 0 ? dataPath.slice(1) : [];
-            context.store.setPath(storePath, val);
-            validateAndShowErrors(context);
-          } catch (error) {
-            target.classList.add('is-invalid');
-            validateAndShowErrors(context);
-          }
-        });
-      }
-      return rendered;
-    }
+    case "json": return renderJsonNode(context, node, elementId, name, dataPath);
     case "number":
     case "integer": {
       // Prevent "null" string in value attribute for number inputs which causes browser warnings
@@ -213,49 +193,79 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
     }
     case "boolean": return domRenderer.renderBoolean(node, elementId, name);
     case "object": return renderObject(context, node, elementId, headless, dataPath);
-    case "array": {
-      const isFixedSize = !!(node.prefixItems && node.prefixItems.length > 0 && !node.items);
-      const arrayWrapper = domRenderer.renderArray(node, elementId, { isFixedSize });
-      const itemsContainer = (arrayWrapper as Element).querySelector(`.${rendererConfig.triggers.arrayItems}`);
-
-      // Render prefixItems (Tuple)
-      if (node.prefixItems && node.prefixItems.length > 0 && itemsContainer) {
-        node.prefixItems.forEach((itemNode, index) => {
-          let itemData: any = undefined;
-          let hasData = false;
-          if (Array.isArray(node.defaultValue) && node.defaultValue.length > index) {
-            itemData = node.defaultValue[index];
-            hasData = true;
-          }
-          if (hasData) {
-            const hydratedItem = hydrateNodeWithData(itemNode, itemData);
-            // Don't force title for prefixItems to allow label-less rendering
-            hydratedItem.key = String(index);
-            const itemDataPath = [...dataPath, index];
-            const renderedItem = renderNode(context, hydratedItem, elementId, false, itemDataPath);
-            itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: false }));
-          }
-        });
-      }
-      // Render existing items if data is present
-      // Note: prefixItems are rendered above. This block handles the variable items part of the array.
-      if (Array.isArray(node.defaultValue) && node.items && itemsContainer) {
-        const startIndex = node.prefixItems ? node.prefixItems.length : 0;
-        node.defaultValue.slice(startIndex).forEach((itemData: any, index: number) => {
-          const realIndex = startIndex + index;
-          const itemNode = hydrateNodeWithData(node.items!, itemData);
-          itemNode.title = itemNode.title || `Item ${realIndex + 1}`;
-          itemNode.key = String(realIndex);
-          const itemDataPath = [...dataPath, realIndex];
-          const renderedItem = renderNode(context, itemNode, elementId, false, itemDataPath);
-          itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: true }));
-        });
-      }
-      return arrayWrapper;
-    }
+    case "array": return renderArrayNode(context, node, elementId, dataPath);
     case "null": return domRenderer.renderNull(node);
     default: return domRenderer.renderUnsupported(node);
   }
+}
+
+/**
+ * Renders a JSON node with an auto-parsing textarea.
+ */
+export function renderJsonNode(context: RenderContext, node: FormNode, elementId: string, name: string, dataPath: (string | number)[]): Node {
+  const rendered = domRenderer.renderJson(node, elementId, name);
+  const textarea = (rendered as Element).querySelector('textarea');
+  if (textarea) {
+    textarea.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const target = e.target as HTMLTextAreaElement;
+      try {
+        const val = JSON.parse(target.value);
+        target.classList.remove('is-invalid');
+        const storePath = dataPath.length > 0 ? dataPath.slice(1) : [];
+        context.store.setPath(storePath, val);
+        validateAndShowErrors(context);
+      } catch (error) {
+        target.classList.add('is-invalid');
+        validateAndShowErrors(context);
+      }
+    });
+  }
+  return rendered;
+}
+
+/**
+ * Renders an array node, including prefixItems and items.
+ */
+export function renderArrayNode(context: RenderContext, node: FormNode, elementId: string, dataPath: (string | number)[]): Node {
+  const isFixedSize = !!(node.prefixItems && node.prefixItems.length > 0 && !node.items);
+  const arrayWrapper = domRenderer.renderArray(node, elementId, { isFixedSize });
+  const itemsContainer = (arrayWrapper as Element).querySelector(`.${rendererConfig.triggers.arrayItems}`);
+
+  // Render prefixItems (Tuple)
+  if (node.prefixItems && node.prefixItems.length > 0 && itemsContainer) {
+    node.prefixItems.forEach((itemNode, index) => {
+      let itemData: any = undefined;
+      let hasData = false;
+      if (Array.isArray(node.defaultValue) && node.defaultValue.length > index) {
+        itemData = node.defaultValue[index];
+        hasData = true;
+      }
+      if (hasData) {
+        const hydratedItem = hydrateNodeWithData(itemNode, itemData);
+        // Don't force title for prefixItems to allow label-less rendering
+        hydratedItem.key = String(index);
+        const itemDataPath = [...dataPath, index];
+        const renderedItem = renderNode(context, hydratedItem, elementId, false, itemDataPath);
+        itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: false }));
+      }
+    });
+  }
+  // Render existing items if data is present
+  // Note: prefixItems are rendered above. This block handles the variable items part of the array.
+  if (Array.isArray(node.defaultValue) && node.items && itemsContainer) {
+    const startIndex = node.prefixItems ? node.prefixItems.length : 0;
+    node.defaultValue.slice(startIndex).forEach((itemData: any, index: number) => {
+      const realIndex = startIndex + index;
+      const itemNode = hydrateNodeWithData(node.items!, itemData);
+      itemNode.title = itemNode.title || `Item ${realIndex + 1}`;
+      itemNode.key = String(realIndex);
+      const itemDataPath = [...dataPath, realIndex];
+      const renderedItem = renderNode(context, itemNode, elementId, false, itemDataPath);
+      itemsContainer.appendChild(domRenderer.renderArrayItem(renderedItem, { isRemovable: true }));
+    });
+  }
+  return arrayWrapper;
 }
 
 export function getOneOfSelection(node: FormNode, data: any): number {
@@ -780,12 +790,20 @@ export const createAdvancedOptionsRenderer = (alwaysVisibleKeys: string[] = []):
       const name = getName(dataPath);
       if (node.type === "string")
         return domRenderer.renderString(node, elementId, name);
+      if (node.type === "json")
+        return renderJsonNode(context, node, elementId, name, dataPath);
       if (node.type === "boolean")
         return domRenderer.renderBoolean(node, elementId, name);
       if (node.type === "number" || node.type === "integer") {
         const safeNode =
           node.defaultValue === null ? { ...node, defaultValue: "" } : node;
         return domRenderer.renderNumber(safeNode, elementId, name);
+      }
+      if (node.type === "array") {
+        return renderArrayNode(context, node, elementId, dataPath);
+      }
+      if (node.type === "null") {
+        return domRenderer.renderNull(node);
       }
       return domRenderer.renderUnsupported(node);
     }
