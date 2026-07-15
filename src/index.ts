@@ -165,7 +165,7 @@ export async function init(
   }
 
   try {
-    const { rootNode, store, finalData } = await createForm(schemaOrUrl, initialData, renderOptions);
+    const { rootNode, store } = await createForm(schemaOrUrl, initialData, renderOptions);
     
     const context: RenderContext = {
       store,
@@ -192,9 +192,12 @@ export async function init(
       }
     });
 
-    // Trigger initial data change
-    if (typeof onDataChange === 'function' && finalData !== undefined) {
-      onDataChange(finalData);
+    // Trigger initial data change. Use the post-render store snapshot so that
+    // schema defaults seeded during renderForm are included (subscribe happens
+    // after renderForm, so those seeds do not fire onChange on their own).
+    const seededData = store.get();
+    if (typeof onDataChange === 'function' && seededData !== undefined) {
+      onDataChange(seededData);
     }
 
     const setData = (newData: any) => {
@@ -202,8 +205,10 @@ export async function init(
       context.rootNode = hydrateNodeWithData(rootNode, newData);
       context.uiState?.oneOfBranches.clear();
       context.uiState?.oneOfSelection.clear();
-      renderForm(formContainer, context);
+      // Reset the store before re-rendering so default seeding during renderForm
+      // sees the new data (and is not wiped by a subsequent reset).
       store.reset(newData);
+      renderForm(formContainer, context);
     }
 
     return {

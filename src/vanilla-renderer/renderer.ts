@@ -74,6 +74,30 @@ function getUiState(context: RenderContext) {
 }
 
 /**
+ * Whether a node renders a single value input whose displayed default should be
+ * seeded into the store (as opposed to objects/arrays, whose leaves seed themselves).
+ */
+function isValueLeaf(node: FormNode): boolean {
+  if (node.enum) return true;
+  return ['string', 'number', 'integer', 'boolean', 'json'].includes(node.type);
+}
+
+/**
+ * Seeds a leaf's schema `default` into the store so that a displayed default that
+ * the user never touches still round-trips through save. Only fills absent paths;
+ * never overwrites an existing stored value. Uses the same `setPath` mechanism as
+ * user edits, so nested objects/arrays are created consistently.
+ */
+function seedLeafDefault(context: RenderContext, node: FormNode, dataPath: (string | number)[]): void {
+  if (node.defaultValue === undefined || !isValueLeaf(node)) return;
+  // Store path drops the root segment, matching resolvePath()/renderJsonNode.
+  const storePath = dataPath.length > 1 ? dataPath.slice(1) : [];
+  if (storePath.length === 0) return;
+  if (context.store.getPath(storePath) !== undefined) return;
+  context.store.setPath(storePath, node.defaultValue);
+}
+
+/**
  * Recursively renders a FormNode into a DOM node.
  * @param context - The render context providing configuration and registry access.
  * @param node - The FormNode to render.
@@ -176,6 +200,9 @@ export function renderNode(context: RenderContext, node: FormNode, path: string,
   if (renderer?.render) {
     return renderer.render(node, path, elementId, dataPath, context, headless);
   }
+
+  // Seed displayed schema defaults into the store so unedited defaults are saved.
+  seedLeafDefault(context, node, dataPath);
 
   if (node.enum) {
     return domRenderer.renderSelect(node, elementId, node.enum.map(String), name);

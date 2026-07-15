@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseSchema } from '../src/core/parser';
-import { renderForm } from '../src/vanilla-renderer/renderer';
+import { renderForm, hydrateNodeWithData } from '../src/vanilla-renderer/renderer';
 import { Store } from '../src/core/state';
 import { generateDefaultData } from '../src/core/form-data-reader';
 import { CONFIG } from '../src/core/config';
@@ -367,5 +367,68 @@ describe('Integration Tests', () => {
     expect(objectInput).not.toBeNull();
     expect(objectInput.value).toBe('bar');
     expect(store.get()).toEqual({ variant: { foo: 'bar' } });
+  });
+
+  it('should seed displayed schema defaults into the store for untouched fields', async () => {
+    // Reproduces the mq-bridge case: partial data is loaded, but the schema
+    // declares defaults for fields the user never touches. The defaults are
+    // displayed and must round-trip through save without being retyped.
+    const schema = {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "max_message_size": { "type": "integer", "default": 4194304 },
+        "wait_timeout_ms": { "type": "integer", "default": 1000 },
+        "enabled": { "type": "boolean", "default": true },
+      }
+    };
+
+    const rootNode = hydrateNodeWithData(await parseSchema(schema as any), { name: 'MQ1' });
+    // Store starts with only the provided data, as it would when editing.
+    store.reset({ name: 'MQ1' });
+
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
+
+    // Defaults are displayed...
+    expect((document.getElementById('root.max_message_size') as HTMLInputElement).value).toBe('4194304');
+    // ...and now also present in the store without any user interaction.
+    expect(store.get()).toEqual({
+      name: 'MQ1',
+      max_message_size: 4194304,
+      wait_timeout_ms: 1000,
+      enabled: true,
+    });
+  });
+
+  it('should not overwrite an existing stored value with the schema default', async () => {
+    const schema = {
+      "type": "object",
+      "properties": {
+        "wait_timeout_ms": { "type": "integer", "default": 1000 },
+      }
+    };
+
+    const rootNode = hydrateNodeWithData(await parseSchema(schema as any), { wait_timeout_ms: 5000 });
+    store.reset({ wait_timeout_ms: 5000 });
+
+    renderForm(container, {
+      rootNode,
+      store,
+      config: CONFIG,
+      customRenderers: {},
+      nodeRegistry: new Map(),
+      dataPathRegistry: new Map(),
+      elementIdToDataPath: new Map(),
+    } as any);
+
+    expect(store.get()).toEqual({ wait_timeout_ms: 5000 });
   });
 });
