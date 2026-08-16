@@ -1,7 +1,7 @@
 import { RenderContext } from "./types";
 import { ErrorObject } from "../core/types";
 import { FormNode } from "../core/parser";
-import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey, getOneOfSelection, renderTypeSelectArrayItem } from "./renderer";
+import { renderNode, findCustomRenderer, hydrateNodeWithData, getName, toRegistryKey, getOneOfSelection, renderTypeSelectArrayItem, flushDeferredDefaults } from "./renderer";
 import { generateDefaultData } from "../core/form-data-reader";
 import { validateData } from "../core/validator";
 import { domRenderer } from "./dom-renderer";
@@ -66,6 +66,8 @@ function syncStoreValue(context: RenderContext, target: HTMLInputElement | HTMLS
   }
 
   handleValueUpdate(context, target);
+  // The edit may have created a container that was holding defaults back.
+  flushDeferredDefaults(context);
   return shouldValidate;
 }
 
@@ -207,6 +209,7 @@ function handleTypedArrayAdd(context: RenderContext, select: HTMLSelectElement) 
 
   initializeInteractiveSubtree(context, container.lastElementChild || container);
   resetArrayTypePicker(select);
+  flushDeferredDefaults(context);
   validateAndShowErrors(context);
 }
 
@@ -433,6 +436,7 @@ function handleOneOfChange(context: RenderContext, target: HTMLSelectElement) {
     uiState.oneOfSelection.set(elementId!, selectedIdx);
     branchMap.set(selectedIdx, structuredClone(newData));
     initializeInteractiveSubtree(context, contentContainer);
+    flushDeferredDefaults(context);
     validateAndShowErrors(context);
   }
 }
@@ -507,6 +511,7 @@ function handleArrayAddItem(context: RenderContext, target: HTMLElement) {
       }
 
       container.dispatchEvent(new Event('change', { bubbles: true }));
+      flushDeferredDefaults(context);
       validateAndShowErrors(context);
     }
   }
@@ -609,6 +614,7 @@ function handleApAddItem(context: RenderContext, target: HTMLElement) {
     }
     
     container.dispatchEvent(new Event('change', { bubbles: true }));
+    flushDeferredDefaults(context);
     validateAndShowErrors(context);
   }
 }

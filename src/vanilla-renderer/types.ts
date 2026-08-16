@@ -24,6 +24,16 @@ export interface TemplateRenderer<T> {
   renderFragment(elements: T[]): T;
 }
 
+/** A leaf default that could not be written yet without materializing its container. */
+export interface DeferredDefault {
+  /** Store path of the absent container that gates the write. */
+  blockedAt: (string | number)[];
+  path: (string | number)[];
+  value: any;
+  /** Field displaying the default; once it leaves the form, the default goes with it. */
+  elementId: string;
+}
+
 export interface RenderContext {
   store: Store<any>;
   config: any;
@@ -32,8 +42,10 @@ export interface RenderContext {
   elementIdToDataPath: Map<string, (string | number)[]>;
   customRenderers: Record<string, CustomRenderer<any>>;
   rootNode: FormNode;
-  /** Internal: set while rendering below an optional container absent from the data. */
-  defaultSeedingBlocked?: boolean;
+  /** Internal: store path of the nearest absent optional container being rendered. */
+  defaultSeedingBlockedAt?: (string | number)[];
+  /** Internal: leaf defaults withheld until their container exists in the data. */
+  deferredDefaults?: DeferredDefault[];
   uiState?: {
     disclosures: Map<string, boolean>;
     oneOfBranches: Map<string, Map<number, any>>;

@@ -1,5 +1,5 @@
 import { FormNode } from "../core/parser";
-import { RenderContext, CustomRenderer } from "./types";
+import { RenderContext, CustomRenderer, DeferredDefault } from "./types";
 import { attachInteractivity, validateAndShowErrors } from "./events";
 import { domRenderer, rendererConfig } from "./dom-renderer";
 import { CONFIG } from "../core/config";
@@ -17,6 +17,7 @@ export function renderForm(formContainer: HTMLElement, context: RenderContext) {
   context.nodeRegistry.clear();
   context.dataPathRegistry.clear();
   context.elementIdToDataPath.clear();
+  context.deferredDefaults = [];
   const node = renderNode(context, context.rootNode, "", false, []);
   const form = domRenderer.renderFormWrapper(node);
   
@@ -98,17 +99,48 @@ export function toStorePath(dataPath: (string | number)[]): (string | number)[] 
  * never overwrites an existing stored value. Uses the same `setPath` mechanism as
  * user edits, so nested objects/arrays are created consistently.
  */
-function seedLeafDefault(context: RenderContext, node: FormNode, dataPath: (string | number)[]): void {
-  if (context.defaultSeedingBlocked) return;
+function seedLeafDefault(context: RenderContext, node: FormNode, dataPath: (string | number)[], elementId: string): void {
   if (node.defaultValue === undefined || !isValueLeaf(node)) return;
   const storePath = toStorePath(dataPath);
   if (storePath.length === 0) return;
   if (context.store.getPath(storePath) !== undefined) return;
+  const blockedAt = context.defaultSeedingBlockedAt;
+  if (blockedAt) {
+    // Held rather than dropped: the form already displays this default, so it
+    // still has to round-trip once the user's own edit creates the container.
+    (context.deferredDefaults ??= []).push({ blockedAt, path: storePath, value: node.defaultValue, elementId });
+    return;
+  }
   context.store.setPath(storePath, node.defaultValue);
 }
 
 /**
- * Whether nothing below this node may seed a default. Seeding goes through
+ * Writes back the defaults held by `seedLeafDefault` whose container has since
+ * appeared in the data. Call after any edit that may have created one. Entries
+ * still gated stay pending; ones the user has meanwhile filled, or whose field
+ * has left the form (a discarded oneOf branch, a removed item), are dropped -
+ * a default only belongs in the data while the form is displaying it.
+ */
+export function flushDeferredDefaults(context: RenderContext): void {
+  const pending = context.deferredDefaults;
+  if (!pending?.length) return;
+
+  const stillBlocked: DeferredDefault[] = [];
+  for (const entry of pending) {
+    if (!document.getElementById(entry.elementId)) continue;
+    if (context.store.getPath(entry.blockedAt) === undefined) {
+      stillBlocked.push(entry);
+      continue;
+    }
+    if (context.store.getPath(entry.path) === undefined) {
+      context.store.setPath(entry.path, entry.value);
+    }
+  }
+  context.deferredDefaults = stillBlocked;
+}
+
+/**
+ * Whether nothing below this node may seed a default *yet*. Seeding goes through
  * `setPath`, which creates absent ancestors, so a leaf default under an optional
  * object that the data does not contain would materialize that object - holding
  * only the defaulted leaves and missing whatever it declares as required.
@@ -136,12 +168,18 @@ function blocksDefaultSeeding(context: RenderContext, node: FormNode, dataPath: 
  * @returns A DOM node representing the rendered FormNode.
  */
 export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: (string | number)[] = []): Node {
-  const wasBlocked = !!context.defaultSeedingBlocked;
-  context.defaultSeedingBlocked = wasBlocked || blocksDefaultSeeding(context, node, dataPath);
+  // The innermost absent container wins: a held default may only be written once
+  // every container between it and the data root exists, so the nearest one gates
+  // it. Deeper entry points (re-rendering a subtree after an edit) start unblocked,
+  // which is correct - the edit that triggered them creates the container itself.
+  const previousBlockedAt = context.defaultSeedingBlockedAt;
+  if (blocksDefaultSeeding(context, node, dataPath)) {
+    context.defaultSeedingBlockedAt = toStorePath(dataPath);
+  }
   try {
     return renderNodeContent(context, node, path, headless, dataPath);
   } finally {
-    context.defaultSeedingBlocked = wasBlocked;
+    context.defaultSeedingBlockedAt = previousBlockedAt;
   }
 }
 
@@ -241,7 +279,7 @@ function renderNodeContent(context: RenderContext, node: FormNode, path: string,
   }
 
   // Seed displayed schema defaults into the store so unedited defaults are saved.
-  seedLeafDefault(context, node, dataPath);
+  seedLeafDefault(context, node, dataPath, elementId);
 
   if (node.enum) {
     return domRenderer.renderSelect(node, elementId, node.enum.map(String), name);
@@ -764,7 +802,8 @@ export const createTypeSelectArrayRenderer = ({
       });
     }
 
-    const addBtn = h(
+    // Built on demand: where the picker is its own trigger there is no button.
+    const makeAddBtn = () => h(
       "button",
       {
         type: "button",
@@ -781,7 +820,7 @@ export const createTypeSelectArrayRenderer = ({
           "div",
           { className: rendererConfig.classes.headless, id: elementId },
           itemsContainer,
-          addBtn
+          makeAddBtn()
         );
       }
       // Fall back to a consistent fieldset structure for non-oneOf arrays
@@ -837,7 +876,7 @@ export const createTypeSelectArrayRenderer = ({
       ...options,
     );
 
-    const controls = pickerIsTrigger ? [select] : [addBtn, select];
+    const controls = pickerIsTrigger ? [select] : [makeAddBtn(), select];
 
     if (headless) {
       return h(
