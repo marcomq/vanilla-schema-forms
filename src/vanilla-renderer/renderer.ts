@@ -83,18 +83,47 @@ function isValueLeaf(node: FormNode): boolean {
 }
 
 /**
+ * Store path for a data path; drops the root segment, matching resolvePath().
+ * The `dataPath` handed to a custom renderer is prefixed with the form root key,
+ * which is not part of the store state, so custom renderers reading or writing
+ * `context.store` by path need this.
+ */
+export function toStorePath(dataPath: (string | number)[]): (string | number)[] {
+  return dataPath.length > 1 ? dataPath.slice(1) : [];
+}
+
+/**
  * Seeds a leaf's schema `default` into the store so that a displayed default that
  * the user never touches still round-trips through save. Only fills absent paths;
  * never overwrites an existing stored value. Uses the same `setPath` mechanism as
  * user edits, so nested objects/arrays are created consistently.
  */
 function seedLeafDefault(context: RenderContext, node: FormNode, dataPath: (string | number)[]): void {
+  if (context.defaultSeedingBlocked) return;
   if (node.defaultValue === undefined || !isValueLeaf(node)) return;
-  // Store path drops the root segment, matching resolvePath()/renderJsonNode.
-  const storePath = dataPath.length > 1 ? dataPath.slice(1) : [];
+  const storePath = toStorePath(dataPath);
   if (storePath.length === 0) return;
   if (context.store.getPath(storePath) !== undefined) return;
   context.store.setPath(storePath, node.defaultValue);
+}
+
+/**
+ * Whether nothing below this node may seed a default. Seeding goes through
+ * `setPath`, which creates absent ancestors, so a leaf default under an optional
+ * object that the data does not contain would materialize that object - holding
+ * only the defaulted leaves and missing whatever it declares as required.
+ * Defaults are a top-down notion; seeding is bottom-up, so the descent carries
+ * the veto. Required containers stay seedable: their absence already makes the
+ * document invalid, so creating them cannot invalidate a valid one.
+ */
+function blocksDefaultSeeding(context: RenderContext, node: FormNode, dataPath: (string | number)[]): boolean {
+  if (node.required || isValueLeaf(node)) return false;
+  // Only object properties are optional in this sense; an array item exists
+  // because its index does, and additional properties carry their own flow.
+  if (typeof dataPath[dataPath.length - 1] !== 'string') return false;
+  const storePath = toStorePath(dataPath);
+  if (storePath.length === 0) return false;
+  return context.store.getPath(storePath) === undefined;
 }
 
 /**
@@ -107,6 +136,16 @@ function seedLeafDefault(context: RenderContext, node: FormNode, dataPath: (stri
  * @returns A DOM node representing the rendered FormNode.
  */
 export function renderNode(context: RenderContext, node: FormNode, path: string, headless: boolean = false, dataPath: (string | number)[] = []): Node {
+  const wasBlocked = !!context.defaultSeedingBlocked;
+  context.defaultSeedingBlocked = wasBlocked || blocksDefaultSeeding(context, node, dataPath);
+  try {
+    return renderNodeContent(context, node, path, headless, dataPath);
+  } finally {
+    context.defaultSeedingBlocked = wasBlocked;
+  }
+}
+
+function renderNodeContent(context: RenderContext, node: FormNode, path: string, headless: boolean, dataPath: (string | number)[]): Node {
   let segment = node.key;
   if (!segment) {
     // If no key (e.g. root or oneOf variant), use a prefixed title to avoid collision
@@ -691,6 +730,16 @@ function renderDisclosureSection(
 }
 
 /**
+ * Whether a hidden `<select>` can be opened from script. WebKit (Safari, and
+ * therefore Tauri/WKWebView) implements no `showPicker` on selects, so there the
+ * "add" button can reveal the picker but never open it.
+ */
+function canOpenSelectProgrammatically(): boolean {
+  return typeof HTMLSelectElement !== "undefined"
+    && typeof (HTMLSelectElement.prototype as any).showPicker === "function";
+}
+
+/**
  * Reusable renderer factory for arrays with oneOf items.
  * It renders a select dropdown to choose the item type when adding a new item.
  */
@@ -761,20 +810,26 @@ export const createTypeSelectArrayRenderer = ({
         );
       })
       .filter((o) => o !== null);
+
+    // Where the picker cannot be opened from script, the button would be a dead
+    // first click: use the picker itself as the affordance, carrying the button's
+    // label as its resting option, so one native click opens it in every engine.
+    const pickerIsTrigger = !canOpenSelectProgrammatically();
+
     options.unshift(
       h(
         "option",
         { value: "", selected: true, disabled: true },
-        "Select type...",
+        pickerIsTrigger ? buttonLabel : "Select type...",
       ),
     );
 
     const select = h(
       "select",
       {
-        className: `${rendererConfig.classes.select} ${rendererConfig.triggers.arrayTypeSelect}`,
+        className: `${pickerIsTrigger ? rendererConfig.classes.buttonPrimary : rendererConfig.classes.select} ${rendererConfig.triggers.arrayTypeSelect}`,
         id: `${elementId}__type_picker`,
-        style: "display: none; width: auto; margin-top: 0.5rem;",
+        style: `display: ${pickerIsTrigger ? "inline-block" : "none"}; width: auto; margin-top: 0.5rem;`,
         "data-id": elementId,
         "data-target": itemsContainerId,
         "data-item-label": itemLabel,
@@ -782,13 +837,14 @@ export const createTypeSelectArrayRenderer = ({
       ...options,
     );
 
+    const controls = pickerIsTrigger ? [select] : [addBtn, select];
+
     if (headless) {
       return h(
         "div",
         { className: rendererConfig.classes.headless, id: elementId },
         itemsContainer,
-        addBtn,
-        select
+        ...controls,
       );
     }
 
@@ -800,8 +856,7 @@ export const createTypeSelectArrayRenderer = ({
         ? h("div", { className: rendererConfig.classes.description }, node.description)
         : "",
       itemsContainer,
-      addBtn,
-      select,
+      ...controls,
     );
   },
 });

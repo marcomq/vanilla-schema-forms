@@ -32,6 +32,8 @@ export interface RenderContext {
   elementIdToDataPath: Map<string, (string | number)[]>;
   customRenderers: Record<string, CustomRenderer<any>>;
   rootNode: FormNode;
+  /** Internal: set while rendering below an optional container absent from the data. */
+  defaultSeedingBlocked?: boolean;
   uiState?: {
     disclosures: Map<string, boolean>;
     oneOfBranches: Map<string, Map<number, any>>;

@@ -12,8 +12,9 @@ export { setI18n, resetI18n } from "./core/i18n";
 export { 
   renderNode, 
   renderObject, 
-  renderProperties, 
+  renderProperties,
   getName,
+  toStorePath,
   createTypeSelectArrayRenderer,
   createAdvancedOptionsRenderer,
   createOptionalRenderer,

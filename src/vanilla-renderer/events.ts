@@ -155,11 +155,12 @@ function setupArrayTypePickerHandlers(context: RenderContext, container: HTMLEle
 
 function resetArrayTypePicker(select: HTMLSelectElement) {
   select.value = "";
-  select.style.display = "none";
   const button = select.parentElement?.querySelector(`.${rendererConfig.triggers.arrayTypeToggle}`) as HTMLButtonElement | null;
-  if (button) {
-    button.style.display = "inline-block";
-  }
+  // Without a toggle button to swap back to, the picker is the only affordance
+  // for adding an item - hiding it would leave nothing to click.
+  if (!button) return;
+  select.style.display = "none";
+  button.style.display = "inline-block";
 }
 
 function handleTypedArrayAdd(context: RenderContext, select: HTMLSelectElement) {
