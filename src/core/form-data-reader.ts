@@ -9,6 +9,10 @@ export function generateDefaultData(node: FormNode): any {
     return node.defaultValue;
   }
 
+  if (node.nullable) {
+    return null;
+  }
+
   if (node.type === 'object') {
     const obj: any = {};
     
@@ -17,10 +21,11 @@ export function generateDefaultData(node: FormNode): any {
         const prop = node.properties[key];
         
         // Only include properties that are required, have a default value,
-        // or are complex types (objects/arrays) which should be initialized.
+        // are nullable, or are complex types which should be initialized.
         const shouldInclude = prop.required || 
                               prop.defaultValue !== undefined || 
-                              prop.type === 'object' || 
+                              prop.nullable ||
+                              prop.type === 'object' ||
                               prop.type === 'array';
 
         if (shouldInclude) {

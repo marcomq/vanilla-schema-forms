@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateDefaultData } from '../src/core/form-data-reader';
-import { FormNode } from '../src/core/parser';
+import { FormNode, transformSchemaToFormNode } from '../src/core/parser';
 
 describe('generateDefaultData', () => {
   it('returns explicit default value if present', () => {
@@ -74,5 +74,32 @@ describe('generateDefaultData', () => {
       }
     };
     expect(generateDefaultData(node)).toEqual({ nested: { val: 'default' } });
+  });
+
+  it('returns null for nullable optional fields', () => {
+    const node = transformSchemaToFormNode({
+      type: 'object',
+      properties: {
+        label: { type: ['string', 'null'] },
+        items: { type: ['array', 'null'], items: { type: 'string' } },
+        config: {
+          type: ['object', 'null'],
+          properties: { enabled: { type: 'boolean', default: true } }
+        },
+        nested: {
+          anyOf: [
+            { type: 'object', properties: { value: { type: 'string' } } },
+            { type: 'null' }
+          ]
+        }
+      }
+    } as any);
+
+    expect(generateDefaultData(node)).toEqual({
+      label: null,
+      items: null,
+      config: null,
+      nested: null
+    });
   });
 });

@@ -21,6 +21,7 @@ export interface FormNode {
   oneOf?: FormNode[];
   enum?: any[];
   required?: boolean;
+  nullable?: boolean;
   minLength?: number;
   maxLength?: number;
   minimum?: number;
@@ -223,6 +224,10 @@ export function transformSchemaToFormNode(
     format: schemaObj.format,
     readOnly: schemaObj.readOnly,
   };
+
+  if (Array.isArray(schemaObj.type) && schemaObj.type.includes('null')) {
+    node.nullable = true;
+  }
 
   if (schemaObj.const !== undefined) {
     node.enum = [schemaObj.const];
